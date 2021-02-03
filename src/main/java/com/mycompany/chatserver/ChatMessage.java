@@ -1,4 +1,3 @@
-
 package com.mycompany.chatserver;
 
 import java.time.LocalDateTime;
@@ -9,13 +8,13 @@ import java.time.LocalDateTime;
  */
 public class ChatMessage {
 
-    private LocalDateTime sent;
-    private String nickName;
-    private String message;
-    
+    LocalDateTime sent;
+    String userName;
+    String message;
+
     public ChatMessage(LocalDateTime sent, String nick, String msg) {
         this.sent = sent;
-        this.nickName = nick;
+        this.userName = nick;
         this.message = msg;
     }
 

@@ -9,16 +9,22 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.stream.Collectors;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 public class ChatHandler implements HttpHandler {
 
-    private ArrayList<String> messages;
+    private ArrayList<ChatMessage> messages;
     private String messageBody;
 
     public ChatHandler() {
-        this.messages = new ArrayList<>();
+        this.messages = new ArrayList<ChatMessage>();
         this.messageBody = "";
     }
 
@@ -42,46 +48,67 @@ public class ChatHandler implements HttpHandler {
         String errorResponse = "";
         int code = 200;
 
-        Headers headers = exchange.getRequestHeaders();
-        int contentLength = 0;
-        String contentType = "";
+        try {
 
-        if (headers.containsKey("Content-Length")) {
-            contentLength = Integer.valueOf(headers.get("Content-Length").get(0));
-        } else {
-            errorResponse = "Content-length not defined";
-            code = 411;
-        }
+            Headers headers = exchange.getRequestHeaders();
+            int contentLength = 0;
+            String contentType = "";
 
-        if (headers.containsKey("Content-Type")) {
-            contentType = headers.get("Content-Type").get(0);
-        } else {
-            errorResponse = "No Content-Type specified in request";
-            code = 400;
-        }
-
-        if (contentType.equalsIgnoreCase("text/plain")) {
-
-            InputStream stream = exchange.getRequestBody();
-
-            String text = new BufferedReader(new InputStreamReader(stream,
-                    StandardCharsets.UTF_8))
-                    .lines()
-                    .collect(Collectors.joining("\n"));
-
-            stream.close();
-
-            if (!text.isEmpty()) {
-                messages.add(text + "\n");
-                exchange.sendResponseHeaders(200, -1);
+            if (headers.containsKey("Content-Length")) {
+                contentLength = Integer.valueOf(headers.get("Content-Length").get(0));
             } else {
-                errorResponse = "Text was empty.";
+                errorResponse = "Content-length not defined";
+                code = 411;
+            }
+
+            if (headers.containsKey("Content-Type")) {
+                contentType = headers.get("Content-Type").get(0);
+            } else {
+                errorResponse = "No Content-Type specified in request";
                 code = 400;
             }
 
-        } else if (!contentType.isEmpty() && !contentType.equalsIgnoreCase("text/plain")) {
-            errorResponse = "Content-Type must be text/plain";
-            code = 411;
+            if (contentType.equalsIgnoreCase("application/json")) {
+
+                InputStream stream = exchange.getRequestBody();
+
+                String text = new BufferedReader(new InputStreamReader(stream,
+                        StandardCharsets.UTF_8))
+                        .lines()
+                        .collect(Collectors.joining("\n"));
+
+                stream.close();
+
+                JSONObject chatMessage = new JSONObject(text);
+
+                String dateStr = chatMessage.getString("sent");
+                OffsetDateTime odt = OffsetDateTime.parse(dateStr);
+
+                LocalDateTime sent = odt.toLocalDateTime();
+                String nickName = chatMessage.get("user").toString();
+                String message = chatMessage.getString("message");
+
+                ChatMessage newMessage = new ChatMessage(sent, nickName, message);
+
+                if (!text.isEmpty()) {
+                    messages.add(newMessage);
+                    exchange.sendResponseHeaders(200, -1);
+                } else {
+                    errorResponse = "Text was empty.";
+                    code = 400;
+                }
+
+            } else if (!contentType.isEmpty() && !contentType.equalsIgnoreCase("application/json")) {
+                errorResponse = "Content-Type must be application/json";
+                code = 411;
+            }
+
+        } catch (JSONException e) {
+            e.printStackTrace();
+            code = 400;
+            errorResponse = "Invalid JSON-file";
+        } catch (Exception e) {
+            e.printStackTrace();
         }
 
         if (code < 200 || code > 299) {
@@ -94,7 +121,6 @@ public class ChatHandler implements HttpHandler {
             os.write(errorResponse.getBytes("UTF-8"));
             os.flush();
             os.close();
-
         }
 
         exchange.close();
@@ -102,20 +128,55 @@ public class ChatHandler implements HttpHandler {
 
     private void handleGetRequest(HttpExchange exchange) throws IOException {
         // Handle GET request (client wants to see all messages)
-        for (int i = 0; i < messages.size(); i++) {
-            messageBody += messages.get(i) + "\n";
+
+        try {
+
+            if (messages.isEmpty()) {
+                //Send code 204 with no content if messages list is empty
+                exchange.sendResponseHeaders(204, -1);
+            } else {
+
+                //Sort messages by timestamp
+                Collections.sort(messages, (ChatMessage lhs, ChatMessage rhs) -> lhs.sent.compareTo(rhs.sent));
+
+                //Create JSONArray to add messages to
+                JSONArray responseMessages = new JSONArray();
+
+                for (ChatMessage message : messages) {
+
+                    //Format timestamps
+                    //DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MMdd'T'HH:mm:ss.SSSX");
+                    //Create new JSONObject with message details
+                    JSONObject json = new JSONObject();
+                    json.put("sent", message.sent);
+                    json.put("user", message.userName);
+                    json.put("message", message.message);
+
+                    //Add JSONObject to JSONArray
+                    responseMessages.put(json);
+                }
+
+                for (int i = 0; i < responseMessages.length(); i++) {
+                    //Get data from JSONArray's JSONObject's and paste it to messageBody
+                    JSONObject o = new JSONObject();
+                    o = responseMessages.getJSONObject(i);
+
+                    messageBody += o.get("sent") + "<" + o.get("user") + ">" + o.get("message");
+                }
+
+                byte[] bytes = messageBody.getBytes("UTF-8");
+
+                exchange.sendResponseHeaders(200, bytes.length);
+
+                OutputStream os = exchange.getResponseBody();
+                os.write(bytes);
+
+                os.flush();
+                os.close();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-
-        byte[] bytes = messageBody.getBytes("UTF-8");
-
-        exchange.sendResponseHeaders(200, bytes.length);
-
-        OutputStream os = exchange.getResponseBody();
-        os.write(bytes);
-
-        os.flush();
-        os.close();
-
         exchange.close();
     }
 

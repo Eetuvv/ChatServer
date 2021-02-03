@@ -70,21 +70,23 @@ public class RegistrationHandler implements HttpHandler {
                     String email = registrationMsg.getString("email");
 
                     if (this.authenticator.addUser(username, password, email)) {
-                        exchange.sendResponseHeaders(200, -1); 
+                        exchange.sendResponseHeaders(200, -1);
                     } else {
                         code = 403;
                         errorResponse = "Username is already registered";
                     }
 
-                } else if (!contentType.equalsIgnoreCase("application/json")) {
+                } else {
                     //Return error code if headers don't match JSON-type
                     code = 400;
                     errorResponse = "Content-Type must be application/json";
                 }
-                exchange.close();
+
             }
         } catch (JSONException e) {
-            System.out.println("JSON file not valid");
+            e.printStackTrace();
+            errorResponse = "JSON file not valid";
+            code = 400;
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -102,5 +104,6 @@ public class RegistrationHandler implements HttpHandler {
             os.flush();
             os.close();
         }
+        exchange.close();
     }
 }
