@@ -11,6 +11,9 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.stream.Collectors;
@@ -21,11 +24,9 @@ import org.json.JSONObject;
 public class ChatHandler implements HttpHandler {
 
     private ArrayList<ChatMessage> messages;
-    private String messageBody;
 
     public ChatHandler() {
         this.messages = new ArrayList<ChatMessage>();
-        this.messageBody = "";
     }
 
     @Override
@@ -85,10 +86,10 @@ public class ChatHandler implements HttpHandler {
                 OffsetDateTime odt = OffsetDateTime.parse(dateStr);
 
                 LocalDateTime sent = odt.toLocalDateTime();
-                String nickName = chatMessage.get("user").toString();
+                String userName = chatMessage.get("user").toString();
                 String message = chatMessage.getString("message");
 
-                ChatMessage newMessage = new ChatMessage(sent, nickName, message);
+                ChatMessage newMessage = new ChatMessage(sent, userName, message);
 
                 if (!text.isEmpty()) {
                     messages.add(newMessage);
@@ -142,30 +143,30 @@ public class ChatHandler implements HttpHandler {
                 //Create JSONArray to add messages to
                 JSONArray responseMessages = new JSONArray();
 
-                for (ChatMessage message : messages) {
+                //Formatter for timestamps
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSX");
 
+                for (ChatMessage message : messages) {
+                    
                     //Format timestamps
-                    //DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MMdd'T'HH:mm:ss.SSSX");
+                    ZonedDateTime zonedDateTime = message.sent.atZone(ZoneId.of("UTC"));
+                    String formattedTimestamp = zonedDateTime.format(formatter);
+
                     //Create new JSONObject with message details
                     JSONObject json = new JSONObject();
-                    json.put("sent", message.sent);
+
                     json.put("user", message.userName);
                     json.put("message", message.message);
-
+                    json.put("sent", formattedTimestamp);
+                    
+                    System.out.println(message.userName + " " + message.message + " " + formattedTimestamp);
                     //Add JSONObject to JSONArray
                     responseMessages.put(json);
                 }
-
-                for (int i = 0; i < responseMessages.length(); i++) {
-                    //Get data from JSONArray's JSONObject's and paste it to messageBody
-                    JSONObject o = new JSONObject();
-                    o = responseMessages.getJSONObject(i);
-
-                    messageBody += o.get("sent") + "<" + o.get("user") + ">" + o.get("message");
-                }
-
-                byte[] bytes = messageBody.getBytes("UTF-8");
-
+                
+                String JSON = responseMessages.toString();
+                byte[] bytes = JSON.getBytes("UTF-8");
+                System.out.println(JSON);
                 exchange.sendResponseHeaders(200, bytes.length);
 
                 OutputStream os = exchange.getResponseBody();
