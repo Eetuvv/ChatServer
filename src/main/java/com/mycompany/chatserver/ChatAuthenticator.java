@@ -10,14 +10,11 @@ import java.util.Hashtable;
  */
 public class ChatAuthenticator extends com.sun.net.httpserver.BasicAuthenticator {
 
-    //private Map<String, String> users;
     private Map<String, User> users;
 
     public ChatAuthenticator() {
         super("chat");
         this.users = new Hashtable<>();
-
-        users.put("dummy", new User("dummy", "passwd", "dummy@dummy.com"));
     }
 
     @Override
