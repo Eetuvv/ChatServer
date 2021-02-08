@@ -1,8 +1,10 @@
 package com.mycompany.chatserver;
 
+import java.sql.SQLException;
 import java.util.Map;
-import java.util.HashMap;
 import java.util.Hashtable;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -10,37 +12,31 @@ import java.util.Hashtable;
  */
 public class ChatAuthenticator extends com.sun.net.httpserver.BasicAuthenticator {
 
-    //private Map<String, String> users;
     private Map<String, User> users;
 
     public ChatAuthenticator() {
         super("chat");
         this.users = new Hashtable<>();
-
-        users.put("dummy", new User("dummy", "passwd", "dummy@dummy.com"));
     }
 
     @Override
     public boolean checkCredentials(String username, String password) {
 
-        //TODO check email
-        if (this.users.containsKey(username)) {
+        ChatDatabase db = ChatDatabase.getInstance();
 
-            if (this.users.get(username).password.equals(password)) {
-                return true;
-            }
+        try {
+            return db.authenticateUser(username, password);
+        } catch (SQLException e) {
+            Logger.getLogger(ChatAuthenticator.class.getName()).log(Level.SEVERE, null, e);
+            System.out.println("tst");
         }
         return false;
     }
 
-    public boolean addUser(String userName, String password, String email) {
+    public boolean addUser(String userName, String password, String email) throws SQLException {
 
-        User newUser = new User(userName, password, email);
-        
-        if (!this.users.containsKey(userName)) {
-            this.users.put(userName, newUser);
-            return true;
-        }
-        return false;
+        ChatDatabase db = ChatDatabase.getInstance();
+
+        return db.addUser(userName, password, email);
     }
 }

@@ -14,7 +14,7 @@ import javax.net.ssl.SSLParameters;
 import javax.net.ssl.TrustManagerFactory;
 
 public class ChatServer {
-
+    
     public static void main(String[] args) throws Exception {
 
         try {
@@ -42,7 +42,10 @@ public class ChatServer {
 
             server.setExecutor(null);
             server.start();
-
+            
+            ChatDatabase database = ChatDatabase.getInstance();
+            database.open("jdbc:sqlite:C:\\Users\\Eetu\\Documents\\NetBeansProjects\\ChatServer\\chatDatabase.db");
+            
         } catch (FileNotFoundException e) {
             System.out.println("Error: certificate not found!");
 
