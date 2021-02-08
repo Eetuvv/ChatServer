@@ -23,10 +23,7 @@ import org.json.JSONObject;
 
 public class ChatHandler implements HttpHandler {
 
-    private ArrayList<ChatMessage> messages;
-
     public ChatHandler() {
-        this.messages = new ArrayList<ChatMessage>();
     }
 
     @Override
@@ -92,7 +89,10 @@ public class ChatHandler implements HttpHandler {
                 ChatMessage newMessage = new ChatMessage(sent, userName, message);
 
                 if (!text.isEmpty()) {
-                    messages.add(newMessage);
+                    //Add message to database
+                    ChatDatabase db = ChatDatabase.getInstance();
+                    db.insertMessage(message, sent, userName);
+                    
                     exchange.sendResponseHeaders(200, -1);
                 } else {
                     errorResponse = "Text was empty.";
@@ -132,13 +132,17 @@ public class ChatHandler implements HttpHandler {
 
         try {
 
-            if (messages.isEmpty()) {
+            ChatDatabase db = ChatDatabase.getInstance();
+            ArrayList<ChatMessage> dbMessages = db.getMessages();
+
+                
+            if (dbMessages.isEmpty()) {
                 //Send code 204 with no content if messages list is empty
                 exchange.sendResponseHeaders(204, -1);
             } else {
 
                 //Sort messages by timestamp
-                Collections.sort(messages, (ChatMessage lhs, ChatMessage rhs) -> lhs.sent.compareTo(rhs.sent));
+                Collections.sort(dbMessages, (ChatMessage lhs, ChatMessage rhs) -> lhs.sent.compareTo(rhs.sent));
 
                 //Create JSONArray to add messages to
                 JSONArray responseMessages = new JSONArray();
@@ -146,7 +150,7 @@ public class ChatHandler implements HttpHandler {
                 //Formatter for timestamps
                 DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSX");
 
-                for (ChatMessage message : messages) {
+                for (ChatMessage message : dbMessages) {
                     
                     //Format timestamps
                     ZonedDateTime zonedDateTime = message.sent.atZone(ZoneId.of("UTC"));
