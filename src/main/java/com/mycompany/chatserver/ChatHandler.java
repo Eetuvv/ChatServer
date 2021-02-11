@@ -134,13 +134,12 @@ public class ChatHandler implements HttpHandler {
 
             ChatDatabase db = ChatDatabase.getInstance();
             ArrayList<ChatMessage> dbMessages = db.getMessages();
-
-                
+            
             if (dbMessages.isEmpty()) {
                 //Send code 204 with no content if messages list is empty
                 exchange.sendResponseHeaders(204, -1);
             } else {
-
+                
                 //Sort messages by timestamp
                 Collections.sort(dbMessages, (ChatMessage lhs, ChatMessage rhs) -> lhs.sent.compareTo(rhs.sent));
 

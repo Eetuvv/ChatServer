@@ -53,7 +53,7 @@ public class ChatDatabase {
             Statement s = db.createStatement();
 
             s.execute("CREATE TABLE Users(id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT, email TEXT)");
-            s.execute("CREATE TABLE Messages(id INTEGER PRIMARY KEY, message TEXT, timestamp TEXT, username REFERENCES Users)");
+            s.execute("CREATE TABLE Messages(id INTEGER PRIMARY KEY, message TEXT, timestamp INTEGER, username REFERENCES Users)");
 
             System.out.println("Database created.");
 
@@ -112,7 +112,7 @@ public class ChatDatabase {
 
             s = db.createStatement();
 
-            //Get count of users with the same username in database, should be 0
+            //Get user info matching given username and password
             PreparedStatement p = db.prepareStatement("SELECT Users.username, Users.password FROM Users WHERE username = ? "
                     + "AND password = ?");
             p.setString(1, username);
@@ -149,7 +149,7 @@ public class ChatDatabase {
 
         try (Connection db = DriverManager.getConnection(databaseName)) {
             s = db.createStatement();
-
+            
             String msgBody = "INSERT INTO Messages(message, timestamp, username) VALUES ('" + msg + "','" + timestamp + "','" + user + "')";
 
             try {
@@ -198,7 +198,6 @@ public class ChatDatabase {
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        //Return JSONArray containing messages in database
         return messages;
     }
 }

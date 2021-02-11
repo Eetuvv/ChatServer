@@ -28,7 +28,6 @@ public class ChatAuthenticator extends com.sun.net.httpserver.BasicAuthenticator
             return db.authenticateUser(username, password);
         } catch (SQLException e) {
             Logger.getLogger(ChatAuthenticator.class.getName()).log(Level.SEVERE, null, e);
-            System.out.println("tst");
         }
         return false;
     }
