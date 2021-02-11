@@ -177,6 +177,7 @@ public class ChatDatabase {
         try (Connection db = DriverManager.getConnection(databaseName)) {
             s = db.createStatement();
 
+            //Select all messages
             PreparedStatement p = db.prepareStatement("SELECT * FROM Messages");
 
             ResultSet r = p.executeQuery();
