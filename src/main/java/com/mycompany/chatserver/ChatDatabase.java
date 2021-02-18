@@ -9,6 +9,9 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.security.SecureRandom;
+import java.util.Base64;
+import org.apache.commons.codec.digest.Crypt;
 
 /**
  *
@@ -18,8 +21,10 @@ public class ChatDatabase {
 
     private static ChatDatabase singleton = null;
     private String databaseName = "";
+    private SecureRandom secureRandom;
 
     private ChatDatabase() {
+        secureRandom = new SecureRandom();
     }
 
     public static synchronized ChatDatabase getInstance() {
@@ -52,7 +57,7 @@ public class ChatDatabase {
 
             Statement s = db.createStatement();
 
-            s.execute("CREATE TABLE Users(id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT, email TEXT)");
+            s.execute("CREATE TABLE Users(id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT, email TEXT, salt TEXT)");
             s.execute("CREATE TABLE Messages(id INTEGER PRIMARY KEY, message TEXT, timestamp INTEGER, username REFERENCES Users)");
 
             System.out.println("Database created.");
@@ -71,6 +76,18 @@ public class ChatDatabase {
     public boolean addUser(String username, String password, String email) throws SQLException {
 
         Statement s;
+
+        //Create salt for password
+        byte[] bytes = new byte[13];
+        secureRandom.nextBytes(bytes);
+
+        //Conver salt bytes to a string
+        String saltBytes = new String(Base64.getEncoder().encode(bytes));
+        String salt = "$6$" + saltBytes;
+        
+        //Hash password with salt
+        String hashedPassword = Crypt.crypt(password, salt);
+
         try (Connection db = DriverManager.getConnection(databaseName)) {
 
             s = db.createStatement();
@@ -84,7 +101,7 @@ public class ChatDatabase {
             //Add user to database if username is available
             try {
                 if (r.getInt("COUNT") == 0) {
-                    s.execute("INSERT INTO Users(username, password, email) VALUES ('" + username + "', '" + password + "','" + email + "')");
+                    s.execute("INSERT INTO Users(username, password, email, salt) VALUES ('" + username + "', '" + hashedPassword + "','" + email + "','" + salt +"')");
                     System.out.println("Added user " + username + " to database.");
                     return true;
 
@@ -113,16 +130,19 @@ public class ChatDatabase {
             s = db.createStatement();
 
             //Get user info matching given username and password
-            PreparedStatement p = db.prepareStatement("SELECT Users.username, Users.password FROM Users WHERE username = ? "
-                    + "AND password = ?");
+            PreparedStatement p = db.prepareStatement("SELECT Users.username, Users.password FROM Users WHERE username = ?");
+                    //+ "AND password = ?");
             p.setString(1, username);
-            p.setString(2, password);
+            //????????????????
+           // p.setString(2, password);
 
             ResultSet r = p.executeQuery();
 
             if (r.next()) {
-
-                if (r.getString("username").equals(username) && r.getString("password").equals(password)) {
+                String hashedPassword = r.getString("password");
+                //Check if username and password match
+                //Check if hashed password in database matches new hashed password with salt
+                if (r.getString("username").equals(username) && hashedPassword.equals(Crypt.crypt(password, hashedPassword))) {
                     System.out.println("Authentication successful.");
                     return true;
                 } else {
@@ -149,7 +169,7 @@ public class ChatDatabase {
 
         try (Connection db = DriverManager.getConnection(databaseName)) {
             s = db.createStatement();
-            
+
             String msgBody = "INSERT INTO Messages(message, timestamp, username) VALUES ('" + msg + "','" + timestamp + "','" + user + "')";
 
             try {

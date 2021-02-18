@@ -161,8 +161,7 @@ public class ChatHandler implements HttpHandler {
                     json.put("user", message.userName);
                     json.put("message", message.message);
                     json.put("sent", formattedTimestamp);
-                    
-                    System.out.println(message.userName + " " + message.message + " " + formattedTimestamp);
+
                     //Add JSONObject to JSONArray
                     responseMessages.put(json);
                 }
