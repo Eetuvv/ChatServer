@@ -10,6 +10,8 @@ import java.sql.Statement;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.security.SecureRandom;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Base64;
 import org.apache.commons.codec.digest.Crypt;
 
@@ -84,7 +86,7 @@ public class ChatDatabase {
         //Conver salt bytes to a string
         String saltBytes = new String(Base64.getEncoder().encode(bytes));
         String salt = "$6$" + saltBytes;
-        
+
         //Hash password with salt
         String hashedPassword = Crypt.crypt(password, salt);
 
@@ -101,7 +103,7 @@ public class ChatDatabase {
             //Add user to database if username is available
             try {
                 if (r.getInt("COUNT") == 0) {
-                    s.execute("INSERT INTO Users(username, password, email, salt) VALUES ('" + username + "', '" + hashedPassword + "','" + email + "','" + salt +"')");
+                    s.execute("INSERT INTO Users(username, password, email, salt) VALUES ('" + username + "', '" + hashedPassword + "','" + email + "','" + salt + "')");
                     System.out.println("Added user " + username + " to database.");
                     return true;
 
@@ -131,10 +133,8 @@ public class ChatDatabase {
 
             //Get user info matching given username and password
             PreparedStatement p = db.prepareStatement("SELECT Users.username, Users.password FROM Users WHERE username = ?");
-                    //+ "AND password = ?");
+           
             p.setString(1, username);
-            //????????????????
-           // p.setString(2, password);
 
             ResultSet r = p.executeQuery();
 
@@ -167,10 +167,12 @@ public class ChatDatabase {
     public void insertMessage(String msg, LocalDateTime timestamp, String user) {
         Statement s;
 
+        long time = timestamp.toInstant(ZoneOffset.UTC).toEpochMilli();;
+
         try (Connection db = DriverManager.getConnection(databaseName)) {
             s = db.createStatement();
 
-            String msgBody = "INSERT INTO Messages(message, timestamp, username) VALUES ('" + msg + "','" + timestamp + "','" + user + "')";
+            String msgBody = "INSERT INTO Messages(message, timestamp, username) VALUES ('" + msg + "','" + time + "','" + user + "')";
 
             try {
                 s.executeUpdate(msgBody);
@@ -185,34 +187,45 @@ public class ChatDatabase {
         }
     }
 
-    public ArrayList getMessages() {
+    public ArrayList<ChatMessage> getMessages(long messagesSince) {
         //Return all messages from database in a ArrayList
+
+        String query = "";
 
         ArrayList<ChatMessage> messages = new ArrayList<>();
         String msg;
-        String timestamp;
+        Long timestamp;
         String user;
 
         Statement s;
         try (Connection db = DriverManager.getConnection(databaseName)) {
             s = db.createStatement();
 
-            //Select all messages
-            PreparedStatement p = db.prepareStatement("SELECT * FROM Messages");
+            PreparedStatement p;
+
+            if (messagesSince == -1) {
+                query = "SELECT * FROM Messages";
+                p = db.prepareStatement(query);
+            } else {
+                query = "SELECT Messages.message, Messages.timestamp, Messages.username "
+                        + "FROM Messages WHERE Messages.timestamp > ? ORDER BY timestamp ASC";
+                p = db.prepareStatement(query);
+                p.setLong(1, messagesSince);
+            }
 
             ResultSet r = p.executeQuery();
 
             while (r.next()) {
 
                 msg = r.getString("message");
-                timestamp = r.getString("timestamp");
+                timestamp = r.getLong("timestamp");
                 user = r.getString("username");
-
-                //Convert string to LocalDateTime
-                LocalDateTime time = LocalDateTime.parse(timestamp);
-
+                
+                //Convert long to LocalDateTime
+                LocalDateTime time = LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneOffset.UTC);
+                
+                //Create ChatMessage object from variables, and add it to arraylist
                 ChatMessage message = new ChatMessage(time, user, msg);
-
                 messages.add(message);
             }
             s.close();

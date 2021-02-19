@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -52,7 +53,7 @@ public class ChatHandler implements HttpHandler {
             int contentLength = 0;
             String contentType = "";
 
-            if (headers.containsKey("Content-Length")) {
+            if (headers.containsKey("Content-length")) {
                 contentLength = Integer.valueOf(headers.get("Content-Length").get(0));
             } else {
                 errorResponse = "Content-length not defined";
@@ -92,7 +93,7 @@ public class ChatHandler implements HttpHandler {
                     //Add message to database
                     ChatDatabase db = ChatDatabase.getInstance();
                     db.insertMessage(message, sent, userName);
-                    
+
                     exchange.sendResponseHeaders(200, -1);
                 } else {
                     errorResponse = "Text was empty.";
@@ -128,29 +129,53 @@ public class ChatHandler implements HttpHandler {
     }
 
     private void handleGetRequest(HttpExchange exchange) throws IOException {
-        // Handle GET request (client wants to see all messages)
+        // Handle GET request (client wants to see messages)
 
         try {
-
             ChatDatabase db = ChatDatabase.getInstance();
-            ArrayList<ChatMessage> dbMessages = db.getMessages();
-            
+
+            Headers headers = exchange.getRequestHeaders();
+
+            String lastModified = null;
+            LocalDateTime fromWhichDate = null;
+            long messagesSince = -1;
+
+            if (headers.containsKey("If-Modified-Since")) {
+
+                lastModified = headers.get("If-Modified-Since").get(0);
+
+                ZonedDateTime zd = ZonedDateTime.parse(lastModified);
+                fromWhichDate = zd.toLocalDateTime();
+
+                messagesSince = fromWhichDate.toInstant(ZoneOffset.UTC).toEpochMilli();
+            } else {
+                System.out.println("No last-modified header found");
+            }
+
+            //Formatter for timestamps
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSX");
+
+            ArrayList<ChatMessage> dbMessages = db.getMessages(messagesSince);
+
             if (dbMessages.isEmpty()) {
-                //Send code 204 with no content if messages list is empty
                 exchange.sendResponseHeaders(204, -1);
             } else {
-                
+
                 //Sort messages by timestamp
                 Collections.sort(dbMessages, (ChatMessage lhs, ChatMessage rhs) -> lhs.sent.compareTo(rhs.sent));
 
                 //Create JSONArray to add messages to
                 JSONArray responseMessages = new JSONArray();
 
-                //Formatter for timestamps
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSX");
+                LocalDateTime latest = null;
 
                 for (ChatMessage message : dbMessages) {
                     
+                    //Keep track of latest message in db
+                    if (latest == null || message.sent.isAfter(latest)) {
+                        latest = message.sent;
+                    }
+
                     //Format timestamps
                     ZonedDateTime zonedDateTime = message.sent.atZone(ZoneId.of("UTC"));
                     String formattedTimestamp = zonedDateTime.format(formatter);
@@ -165,10 +190,18 @@ public class ChatHandler implements HttpHandler {
                     //Add JSONObject to JSONArray
                     responseMessages.put(json);
                 }
-                
+
+                if (latest != null) {
+                    ZonedDateTime zonedDateTime = latest.atZone(ZoneId.of("UTC"));
+                    String latestFormatted = zonedDateTime.format(formatter);
+
+                    //Add last-modified header with value of latest msg timestamp
+                    exchange.getResponseHeaders().add("Last-Modified", latestFormatted);
+                }
+
                 String JSON = responseMessages.toString();
                 byte[] bytes = JSON.getBytes("UTF-8");
-                System.out.println(JSON);
+
                 exchange.sendResponseHeaders(200, bytes.length);
 
                 OutputStream os = exchange.getResponseBody();
@@ -180,6 +213,7 @@ public class ChatHandler implements HttpHandler {
         } catch (Exception e) {
             e.printStackTrace();
         }
+
         exchange.close();
     }
 
