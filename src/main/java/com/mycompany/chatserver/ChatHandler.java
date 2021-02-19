@@ -170,7 +170,7 @@ public class ChatHandler implements HttpHandler {
                 LocalDateTime latest = null;
 
                 for (ChatMessage message : dbMessages) {
-                    
+
                     //Keep track of latest message in db
                     if (latest == null || message.sent.isAfter(latest)) {
                         latest = message.sent;

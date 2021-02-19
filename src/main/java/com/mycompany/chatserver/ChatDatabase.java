@@ -204,11 +204,12 @@ public class ChatDatabase {
             PreparedStatement p;
 
             if (messagesSince == -1) {
-                query = "SELECT * FROM Messages";
+                //Get 100 newest messages from db if no last-modified header is found
+                query = "SELECT * FROM Messages ORDER BY timestamp DESC LIMIT 100";
                 p = db.prepareStatement(query);
             } else {
                 query = "SELECT Messages.message, Messages.timestamp, Messages.username "
-                        + "FROM Messages WHERE Messages.timestamp > ? ORDER BY timestamp ASC";
+                        + "FROM Messages WHERE Messages.timestamp > ? ORDER BY timestamp";
                 p = db.prepareStatement(query);
                 p.setLong(1, messagesSince);
             }
