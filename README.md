@@ -11,4 +11,4 @@ To start the server, pass these tree startup parameters to server, <strong>in th
 2. Certificate file name and path
 3. Password of the certificate
 
-For example: java -jar target/my-server-jar.jar chat-database.db keystore.jks ea3d-asd23-adfw
+For example: java -jar target/my-server-jar.jar chat-database.db keystore.jks mypassword123
