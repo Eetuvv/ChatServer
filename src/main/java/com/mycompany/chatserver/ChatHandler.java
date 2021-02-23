@@ -106,11 +106,8 @@ public class ChatHandler implements HttpHandler {
             }
 
         } catch (JSONException e) {
-            e.printStackTrace();
             code = 400;
             errorResponse = "Invalid JSON-file";
-        } catch (Exception e) {
-            e.printStackTrace();
         }
 
         if (code < 200 || code > 299) {
@@ -210,7 +207,7 @@ public class ChatHandler implements HttpHandler {
                 os.flush();
                 os.close();
             }
-        } catch (Exception e) {
+        } catch (IOException | JSONException e) {
             e.printStackTrace();
         }
 

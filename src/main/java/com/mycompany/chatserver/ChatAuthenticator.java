@@ -3,8 +3,6 @@ package com.mycompany.chatserver;
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.Hashtable;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  *
@@ -27,7 +25,7 @@ public class ChatAuthenticator extends com.sun.net.httpserver.BasicAuthenticator
         try {
             return db.authenticateUser(username, password);
         } catch (SQLException e) {
-            Logger.getLogger(ChatAuthenticator.class.getName()).log(Level.SEVERE, null, e);
+            e.printStackTrace();
         }
         return false;
     }

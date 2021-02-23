@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.sql.SQLException;
 import java.util.stream.Collectors;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -84,11 +85,10 @@ public class RegistrationHandler implements HttpHandler {
 
             }
         } catch (JSONException e) {
-            e.printStackTrace();
             errorResponse = "JSON file not valid";
             code = 400;
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (SQLException e) {
+           e.printStackTrace();
         }
 
         if (code < 200 || code > 299) {

@@ -45,11 +45,21 @@ public class ChatDatabase {
 
         databaseName = dbName;
         Connection db = DriverManager.getConnection(databaseName);
-
+        
         if (exists == false) {
             initializeDatabase();
         } else {
-            System.out.println("Database found.");
+            System.out.println("Connected to database.");
+        }
+    }
+    
+    public void close() throws SQLException {
+        
+        try (Connection db = DriverManager.getConnection(databaseName)) {
+            System.out.println("Closing database connection");
+            db.close();
+        } catch (SQLException e) {
+            System.out.println("No database connection found, nothing to close");
         }
     }
 
@@ -63,14 +73,12 @@ public class ChatDatabase {
             s.execute("CREATE TABLE Messages(id INTEGER PRIMARY KEY, message TEXT, timestamp INTEGER, username REFERENCES Users)");
 
             System.out.println("Database created.");
+            System.out.println("Connected to database.");
 
             s.close();
             return true;
         } catch (SQLException e) {
-            System.out.println("Database already exists.");
-            e.printStackTrace();
-        } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println("Error creating new database.");
         }
         return false;
     }
@@ -112,15 +120,11 @@ public class ChatDatabase {
                 }
             } catch (SQLException e) {
                 System.out.println("Error when adding user credentials to database.");
-                e.printStackTrace();
             }
             s.close();
 
         } catch (SQLException e) {
-            System.out.println("Database not found");
-            e.printStackTrace();
-        } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println("Could not connect to database.");
         }
         return false;
     }
@@ -156,10 +160,7 @@ public class ChatDatabase {
             s.close();
 
         } catch (SQLException e) {
-            System.out.println("Database not found");
-            e.printStackTrace();
-        } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println("Could not connect to database");
         }
         return false;
     }
@@ -178,12 +179,11 @@ public class ChatDatabase {
                 s.executeUpdate(msgBody);
             } catch (SQLException e) {
                 System.out.println("Error inserting message into database.");
-                e.printStackTrace();
             }
 
             s.close();
         } catch (SQLException e) {
-            e.printStackTrace();
+            System.out.println("Could not connect to database.");
         }
     }
 
@@ -231,7 +231,7 @@ public class ChatDatabase {
             }
             s.close();
         } catch (SQLException e) {
-            e.printStackTrace();
+            System.out.println("Could not connect to database.");
         }
         return messages;
     }
