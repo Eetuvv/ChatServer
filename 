@@ -1,0 +1,268 @@
+[1mdiff --git a/src/main/java/com/mycompany/chatserver/ChatHandler.java b/src/main/java/com/mycompany/chatserver/ChatHandler.java[m
+[1mindex 78e1c2b..f9e0b89 100644[m
+[1m--- a/src/main/java/com/mycompany/chatserver/ChatHandler.java[m
+[1m+++ b/src/main/java/com/mycompany/chatserver/ChatHandler.java[m
+[36m@@ -9,16 +9,22 @@[m [mimport java.io.InputStream;[m
+ import java.io.InputStreamReader;[m
+ import java.io.OutputStream;[m
+ import java.nio.charset.StandardCharsets;[m
+[32m+[m[32mimport java.time.LocalDateTime;[m
+[32m+[m[32mimport java.time.OffsetDateTime;[m
+ import java.util.ArrayList;[m
+[32m+[m[32mimport java.util.Collections;[m
+ import java.util.stream.Collectors;[m
+[32m+[m[32mimport org.json.JSONArray;[m
+[32m+[m[32mimport org.json.JSONException;[m
+[32m+[m[32mimport org.json.JSONObject;[m
+ [m
+ public class ChatHandler implements HttpHandler {[m
+ [m
+[31m-    private ArrayList<String> messages;[m
+[32m+[m[32m    private ArrayList<ChatMessage> messages;[m
+     private String messageBody;[m
+ [m
+     public ChatHandler() {[m
+[31m-        this.messages = new ArrayList<>();[m
+[32m+[m[32m        this.messages = new ArrayList<ChatMessage>();[m
+         this.messageBody = "";[m
+     }[m
+ [m
+[36m@@ -42,46 +48,67 @@[m [mpublic class ChatHandler implements HttpHandler {[m
+         String errorResponse = "";[m
+         int code = 200;[m
+ [m
+[31m-        Headers headers = exchange.getRequestHeaders();[m
+[31m-        int contentLength = 0;[m
+[31m-        String contentType = "";[m
+[32m+[m[32m        try {[m
+ [m
+[31m-        if (headers.containsKey("Content-Length")) {[m
+[31m-            contentLength = Integer.valueOf(headers.get("Content-Length").get(0));[m
+[31m-        } else {[m
+[31m-            errorResponse = "Content-length not defined";[m
+[31m-            code = 411;[m
+[31m-        }[m
+[32m+[m[32m            Headers headers = exchange.getRequestHeaders();[m
+[32m+[m[32m            int contentLength = 0;[m
+[32m+[m[32m            String contentType = "";[m
+ [m
+[31m-        if (headers.containsKey("Content-Type")) {[m
+[31m-            contentType = headers.get("Content-Type").get(0);[m
+[31m-        } else {[m
+[31m-            errorResponse = "No Content-Type specified in request";[m
+[31m-            code = 400;[m
+[31m-        }[m
+[32m+[m[32m            if (headers.containsKey("Content-Length")) {[m
+[32m+[m[32m                contentLength = Integer.valueOf(headers.get("Content-Length").get(0));[m
+[32m+[m[32m            } else {[m
+[32m+[m[32m                errorResponse = "Content-length not defined";[m
+[32m+[m[32m                code = 411;[m
+[32m+[m[32m            }[m
+[32m+[m
+[32m+[m[32m            if (headers.containsKey("Content-Type")) {[m
+[32m+[m[32m                contentType = headers.get("Content-Type").get(0);[m
+[32m+[m[32m            } else {[m
+[32m+[m[32m                errorResponse = "No Content-Type specified in request";[m
+[32m+[m[32m                code = 400;[m
+[32m+[m[32m            }[m
+ [m
+[31m-        if (contentType.equalsIgnoreCase("text/plain")) {[m
+[32m+[m[32m            if (contentType.equalsIgnoreCase("application/json")) {[m
+ [m
+[31m-            InputStream stream = exchange.getRequestBody();[m
+[32m+[m[32m                InputStream stream = exchange.getRequestBody();[m
+ [m
+[31m-            String text = new BufferedReader(new InputStreamReader(stream,[m
+[31m-                    StandardCharsets.UTF_8))[m
+[31m-                    .lines()[m
+[31m-                    .collect(Collectors.joining("\n"));[m
+[32m+[m[32m                String text = new BufferedReader(new InputStreamReader(stream,[m
+[32m+[m[32m                        StandardCharsets.UTF_8))[m
+[32m+[m[32m                        .lines()[m
+[32m+[m[32m                        .collect(Collectors.joining("\n"));[m
+ [m
+[31m-            stream.close();[m
+[32m+[m[32m                stream.close();[m
+ [m
+[31m-            if (!text.isEmpty()) {[m
+[31m-                messages.add(text + "\n");[m
+[31m-                exchange.sendResponseHeaders(200, -1);[m
+[31m-            } else {[m
+[31m-                errorResponse = "Text was empty.";[m
+[31m-                code = 400;[m
+[32m+[m[32m                JSONObject chatMessage = new JSONObject(text);[m
+[32m+[m
+[32m+[m[32m                String dateStr = chatMessage.getString("sent");[m
+[32m+[m[32m                OffsetDateTime odt = OffsetDateTime.parse(dateStr);[m
+[32m+[m
+[32m+[m[32m                LocalDateTime sent = odt.toLocalDateTime();[m
+[32m+[m[32m                String nickName = chatMessage.get("user").toString();[m
+[32m+[m[32m                String message = chatMessage.getString("message");[m
+[32m+[m
+[32m+[m[32m                ChatMessage newMessage = new ChatMessage(sent, nickName, message);[m
+[32m+[m
+[32m+[m[32m                if (!text.isEmpty()) {[m
+[32m+[m[32m                    messages.add(newMessage);[m
+[32m+[m[32m                    exchange.sendResponseHeaders(200, -1);[m
+[32m+[m[32m                } else {[m
+[32m+[m[32m                    errorResponse = "Text was empty.";[m
+[32m+[m[32m                    code = 400;[m
+[32m+[m[32m                }[m
+[32m+[m
+[32m+[m[32m            } else if (!contentType.isEmpty() && !contentType.equalsIgnoreCase("application/json")) {[m
+[32m+[m[32m                errorResponse = "Content-Type must be application/json";[m
+[32m+[m[32m                code = 411;[m
+             }[m
+ [m
+[31m-        } else if (!contentType.isEmpty() && !contentType.equalsIgnoreCase("text/plain")) {[m
+[31m-            errorResponse = "Content-Type must be text/plain";[m
+[31m-            code = 411;[m
+[32m+[m[32m        } catch (JSONException e) {[m
+[32m+[m[32m            e.printStackTrace();[m
+[32m+[m[32m            code = 400;[m
+[32m+[m[32m            errorResponse = "Invalid JSON-file";[m
+[32m+[m[32m        } catch (Exception e) {[m
+[32m+[m[32m            e.printStackTrace();[m
+         }[m
+ [m
+         if (code < 200 || code > 299) {[m
+[36m@@ -94,7 +121,6 @@[m [mpublic class ChatHandler implements HttpHandler {[m
+             os.write(errorResponse.getBytes("UTF-8"));[m
+             os.flush();[m
+             os.close();[m
+[31m-[m
+         }[m
+ [m
+         exchange.close();[m
+[36m@@ -102,20 +128,55 @@[m [mpublic class ChatHandler implements HttpHandler {[m
+ [m
+     private void handleGetRequest(HttpExchange exchange) throws IOException {[m
+         // Handle GET request (client wants to see all messages)[m
+[31m-        for (int i = 0; i < messages.size(); i++) {[m
+[31m-            messageBody += messages.get(i) + "\n";[m
+[31m-        }[m
+ [m
+[31m-        byte[] bytes = messageBody.getBytes("UTF-8");[m
+[32m+[m[32m        try {[m
+ [m
+[31m-        exchange.sendResponseHeaders(200, bytes.length);[m
+[32m+[m[32m            if (messages.isEmpty()) {[m
+[32m+[m[32m                //Send code 204 with no content if messages list is empty[m
+[32m+[m[32m                exchange.sendResponseHeaders(204, -1);[m
+[32m+[m[32m            } else {[m
+ [m
+[31m-        OutputStream os = exchange.getResponseBody();[m
+[31m-        os.write(bytes);[m
+[32m+[m[32m                //Sort messages by timestamp[m
+[32m+[m[32m                Collections.sort(messages, (ChatMessage lhs, ChatMessage rhs) -> lhs.sent.compareTo(rhs.sent));[m
+ [m
+[31m-        os.flush();[m
+[31m-        os.close();[m
+[32m+[m[32m                //Create JSONArray to add messages to[m
+[32m+[m[32m                JSONArray responseMessages = new JSONArray();[m
+[32m+[m
+[32m+[m[32m                for (ChatMessage message : messages) {[m
+[32m+[m
+[32m+[m[32m                    //Format timestamps[m
+[32m+[m[32m                    //DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MMdd'T'HH:mm:ss.SSSX");[m
+[32m+[m[32m                    //Create new JSONObject with message details[m
+[32m+[m[32m                    JSONObject json = new JSONObject();[m
+[32m+[m[32m                    json.put("sent", message.sent);[m
+[32m+[m[32m                    json.put("user", message.userName);[m
+[32m+[m[32m                    json.put("message", message.message);[m
+ [m
+[32m+[m[32m                    //Add JSONObject to JSONArray[m
+[32m+[m[32m                    responseMessages.put(json);[m
+[32m+[m[32m                }[m
+[32m+[m
+[32m+[m[32m                for (int i = 0; i < responseMessages.length(); i++) {[m
+[32m+[m[32m                    //Get data from JSONArray's JSONObject's and paste it to messageBody[m
+[32m+[m[32m                    JSONObject o = new JSONObject();[m
+[32m+[m[32m                    o = responseMessages.getJSONObject(i);[m
+[32m+[m
+[32m+[m[32m                    messageBody += o.get("sent") + "<" + o.get("user") + ">" + o.get("message");[m
+[32m+[m[32m                }[m
+[32m+[m
+[32m+[m[32m                byte[] bytes = messageBody.getBytes("UTF-8");[m
+[32m+[m
+[32m+[m[32m                exchange.sendResponseHeaders(200, bytes.length);[m
+[32m+[m
+[32m+[m[32m                OutputStream os = exchange.getResponseBody();[m
+[32m+[m[32m                os.write(bytes);[m
+[32m+[m
+[32m+[m[32m                os.flush();[m
+[32m+[m[32m                os.close();[m
+[32m+[m[32m            }[m
+[32m+[m[32m        } catch (Exception e) {[m
+[32m+[m[32m            e.printStackTrace();[m
+[32m+[m[32m        }[m
+         exchange.close();[m
+     }[m
+ [m
+[1mdiff --git a/src/main/java/com/mycompany/chatserver/ChatMessage.java b/src/main/java/com/mycompany/chatserver/ChatMessage.java[m
+[1mindex 4bd26a9..c4977b6 100644[m
+[1m--- a/src/main/java/com/mycompany/chatserver/ChatMessage.java[m
+[1m+++ b/src/main/java/com/mycompany/chatserver/ChatMessage.java[m
+[36m@@ -1,4 +1,3 @@[m
+[31m-[m
+ package com.mycompany.chatserver;[m
+ [m
+ import java.time.LocalDateTime;[m
+[36m@@ -9,13 +8,13 @@[m [mimport java.time.LocalDateTime;[m
+  */[m
+ public class ChatMessage {[m
+ [m
+[31m-    private LocalDateTime sent;[m
+[31m-    private String nickName;[m
+[31m-    private String message;[m
+[31m-    [m
+[32m+[m[32m    LocalDateTime sent;[m
+[32m+[m[32m    String userName;[m
+[32m+[m[32m    String message;[m
+[32m+[m
+     public ChatMessage(LocalDateTime sent, String nick, String msg) {[m
+         this.sent = sent;[m
+[31m-        this.nickName = nick;[m
+[32m+[m[32m        this.userName = nick;[m
+         this.message = msg;[m
+     }[m
+ [m
+[1mdiff --git a/src/main/java/com/mycompany/chatserver/RegistrationHandler.java b/src/main/java/com/mycompany/chatserver/RegistrationHandler.java[m
+[1mindex 5b968eb..b9a5781 100644[m
+[1m--- a/src/main/java/com/mycompany/chatserver/RegistrationHandler.java[m
+[1m+++ b/src/main/java/com/mycompany/chatserver/RegistrationHandler.java[m
+[36m@@ -70,21 +70,23 @@[m [mpublic class RegistrationHandler implements HttpHandler {[m
+                     String email = registrationMsg.getString("email");[m
+ [m
+                     if (this.authenticator.addUser(username, password, email)) {[m
+[31m-                        exchange.sendResponseHeaders(200, -1); [m
+[32m+[m[32m                        exchange.sendResponseHeaders(200, -1);[m
+                     } else {[m
+                         code = 403;[m
+                         errorResponse = "Username is already registered";[m
+                     }[m
+ [m
+[31m-                } else if (!contentType.equalsIgnoreCase("application/json")) {[m
+[32m+[m[32m                } else {[m
+                     //Return error code if headers don't match JSON-type[m
+                     code = 400;[m
+                     errorResponse = "Content-Type must be application/json";[m
+                 }[m
+[31m-                exchange.close();[m
+[32m+[m
+             }[m
+         } catch (JSONException e) {[m
+[31m-            System.out.println("JSON file not valid");[m
+[32m+[m[32m            e.printStackTrace();[m
+[32m+[m[32m            errorResponse = "JSON file not valid";[m
+[32m+[m[32m            code = 400;[m
+         } catch (Exception e) {[m
+             e.printStackTrace();[m
+         }[m
+[36m@@ -102,5 +104,6 @@[m [mpublic class RegistrationHandler implements HttpHandler {[m
+             os.flush();[m
+             os.close();[m
+         }[m
+[32m+[m[32m        exchange.close();[m
+     }[m
+ }[m
