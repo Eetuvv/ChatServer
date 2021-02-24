@@ -40,6 +40,9 @@ public class ChatServer {
             HttpContext chatContext = server.createContext("/chat", new ChatHandler());
             chatContext.setAuthenticator(auth);
 
+            AdminAuthenticator adminAuth = new AdminAuthenticator();
+            HttpContext adminContext = server.createContext("/admin", new AdminHandler(adminAuth));
+
             server.createContext("/registration", new RegistrationHandler(auth));
 
             // Enable multithread support
@@ -72,7 +75,6 @@ public class ChatServer {
                 // If user types command /quit, server will shut down in 3 seconds
                 if (command.equals("/quit")) {
                     running = false;
-                    database.close();
                     System.out.println("--------Shutting down server--------");
                     server.stop(3);
                 }
