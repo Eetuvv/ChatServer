@@ -2,10 +2,6 @@ package com.mycompany.chatserver;
 
 import java.time.LocalDateTime;
 
-/**
- *
- * @author Eetu
- */
 public class ChatMessage {
 
     LocalDateTime sent;

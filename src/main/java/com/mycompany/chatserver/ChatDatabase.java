@@ -15,10 +15,6 @@ import java.time.ZoneOffset;
 import java.util.Base64;
 import org.apache.commons.codec.digest.Crypt;
 
-/**
- *
- * @author Eetu
- */
 public class ChatDatabase {
 
     private static ChatDatabase singleton = null;
@@ -147,13 +143,11 @@ public class ChatDatabase {
                 //Check if username and password match
                 //Check if hashed password in database matches new hashed password with salt
                 if (r.getString("username").equals(username) && hashedPassword.equals(Crypt.crypt(password, hashedPassword))) {
-                    System.out.println("Authentication successful.");
                     return true;
                 } else {
                     System.out.println("Wrong username or password");
                     return false;
                 }
-
             } else {
                 System.out.println("Invalid user credentials");
             }

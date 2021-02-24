@@ -14,10 +14,6 @@ import java.util.stream.Collectors;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-/**
- *
- * @author Eetu
- */
 public class RegistrationHandler implements HttpHandler {
 
     private ChatAuthenticator authenticator;

@@ -4,10 +4,6 @@ import java.sql.SQLException;
 import java.util.Map;
 import java.util.Hashtable;
 
-/**
- *
- * @author Eetu
- */
 public class ChatAuthenticator extends com.sun.net.httpserver.BasicAuthenticator {
 
     private Map<String, User> users;
