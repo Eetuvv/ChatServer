@@ -56,6 +56,10 @@ public class ChatServer {
                     System.out.println("Invalid startup parameters");
                     System.out.println("Usage java -jar jar-file.jar dbname.db cert.jks c3rt-p4ssw0rd");
                     return;
+                } else {
+                    System.out.println(args[0]);
+                    System.out.println(args[1]);
+                    System.out.println(args[2]);
                 }
             } catch (Exception e) {
             }

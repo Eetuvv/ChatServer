@@ -70,8 +70,10 @@ public class RegistrationHandler implements HttpHandler {
 
                     if (text.isEmpty()) {
                         code = 401;
-                        errorResponse = "Text was empty.";
+                        errorResponse = "Error: text was empty.";
+                        
                     } else {
+
                         if (this.authenticator.addUser(username, password, email)) {
                             exchange.sendResponseHeaders(200, -1);
                         } else {
