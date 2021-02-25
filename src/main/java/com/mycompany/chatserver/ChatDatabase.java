@@ -24,6 +24,7 @@ public class ChatDatabase {
     private ChatDatabase() {
         secureRandom = new SecureRandom();
     }
+    
 
     public static synchronized ChatDatabase getInstance() {
         //Function is synchronized to prevent creating multiple instances of the same object
@@ -57,7 +58,7 @@ public class ChatDatabase {
 
             s.execute("CREATE TABLE IF NOT EXISTS Admins(id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT, adminname TEXT UNIQUE, password TEXT, salt TEXT)");
             s.execute("CREATE TABLE IF NOT EXISTS Users(id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT, username TEXT UNIQUE, password TEXT, email TEXT, salt TEXT)");
-            s.execute("CREATE TABLE IF NOT EXISTS Messages(id INTEGER PRIMARY KEY AUTOINCREMENT, message TEXT, timestamp INTEGER, username REFERENCES Users)");
+            s.execute("CREATE TABLE IF NOT EXISTS Messages(id INTEGER PRIMARY KEY AUTOINCREMENT, channel TEXT, message TEXT, timestamp INTEGER, username REFERENCES Users)");
 
             System.out.println("Database created.");
             System.out.println("Connected to database.");
@@ -114,6 +115,7 @@ public class ChatDatabase {
                     return true;
                 } else {
                     System.out.println("Administrator already exists.");
+                    return false;
                 }
             } catch (SQLException e) {
                 System.out.println("Error when adding user credentials to database.");
@@ -195,7 +197,6 @@ public class ChatDatabase {
                 System.out.println("Invalid user credentials");
             }
             s.close();
-
         } catch (SQLException e) {
             System.out.println("Could not connect to database");
         }
@@ -258,25 +259,25 @@ public class ChatDatabase {
             System.out.println("Could not connect to database.");
         }
     }
-    
+
     public boolean editUser(String currentUsername, String username, String password, String email) throws SQLException {
-        
+
         // Admin can edit user's info, by giving the current username and updated info
         // Hash new password with salt
         String split[] = getHashedPasswordWithSalt(password).split(" ");
         String hashedPassword = split[0];
-        
+
         Statement s;
         try (Connection db = DriverManager.getConnection(databaseName)) {
             s = db.createStatement();
-            
+
             PreparedStatement p = db.prepareStatement("UPDATE Users SET username = ? , password = ?, email = ? WHERE username = ?");
-            
+
             p.setString(1, username);
             p.setString(2, hashedPassword);
             p.setString(3, email);
             p.setString(4, currentUsername);
-            
+
             if (p.executeUpdate() != 0) {
                 System.out.println("User " + currentUsername + " updated");
                 return true;
@@ -287,29 +288,32 @@ public class ChatDatabase {
         }
     }
 
-    public void insertMessage(String msg, LocalDateTime timestamp, String user) {
+    public void insertMessage(String channel, ChatMessage message) {
         Statement s;
 
-        long time = timestamp.toInstant(ZoneOffset.UTC).toEpochMilli();;
+        long time = message.sent.toInstant(ZoneOffset.UTC).toEpochMilli();
+
+        String user = message.userName;
+        String msg = message.message;
 
         try (Connection db = DriverManager.getConnection(databaseName)) {
             s = db.createStatement();
 
-            String msgBody = "INSERT INTO Messages(message, timestamp, username) VALUES ('" + msg + "','" + time + "','" + user + "')";
+            String msgBody = "INSERT INTO Messages(channel, message, timestamp, username) VALUES ('" + channel + "','" + msg + "','" + time + "','" + user + "')";
 
             try {
                 s.executeUpdate(msgBody);
+                System.out.println("Message successfully inserted");
             } catch (SQLException e) {
                 System.out.println("Error inserting message into database.");
             }
-
             s.close();
         } catch (SQLException e) {
             System.out.println("Could not connect to database.");
         }
     }
 
-    public ArrayList<ChatMessage> getMessages(long messagesSince) {
+    public ArrayList<ChatMessage> getMessages(String channel, long messagesSince) {
         //Return all messages from database in a ArrayList
         ArrayList<ChatMessage> messages = new ArrayList<>();
         String msg;
@@ -325,13 +329,15 @@ public class ChatDatabase {
 
             if (messagesSince == -1) {
                 //Get 100 newest messages from db if no last-modified header is found
-                query = "SELECT * FROM Messages ORDER BY timestamp DESC LIMIT 100";
+                query = "SELECT * FROM Messages WHERE channel = ? ORDER BY timestamp DESC LIMIT 100";
                 p = db.prepareStatement(query);
+                p.setString(1, channel);
             } else {
                 query = "SELECT Messages.message, Messages.timestamp, Messages.username "
-                        + "FROM Messages WHERE Messages.timestamp > ? ORDER BY timestamp";
+                        + "FROM Messages WHERE channel =  Messages.timestamp > ? ORDER BY timestamp";
                 p = db.prepareStatement(query);
-                p.setLong(1, messagesSince);
+                p.setString(1, channel);
+                p.setLong(2, messagesSince);
             }
 
             ResultSet r = p.executeQuery();

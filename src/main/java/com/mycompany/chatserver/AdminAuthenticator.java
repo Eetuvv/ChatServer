@@ -2,7 +2,7 @@ package com.mycompany.chatserver;
 
 import java.sql.SQLException;
 
-public class AdminAuthenticator extends com.sun.net.httpserver.BasicAuthenticator{
+public class AdminAuthenticator extends com.sun.net.httpserver.BasicAuthenticator {
 
     public AdminAuthenticator() {
         super("admin");
@@ -10,9 +10,9 @@ public class AdminAuthenticator extends com.sun.net.httpserver.BasicAuthenticato
 
     @Override
     public boolean checkCredentials(String username, String password) {
-        
+
         ChatDatabase db = ChatDatabase.getInstance();
-        
+
         try {
             return db.authenticateAdmin(username, password);
         } catch (SQLException e) {
@@ -20,7 +20,7 @@ public class AdminAuthenticator extends com.sun.net.httpserver.BasicAuthenticato
         }
         return false;
     }
-    
+
     public boolean addAdmin(String name, String password) throws SQLException {
 
         ChatDatabase db = ChatDatabase.getInstance();

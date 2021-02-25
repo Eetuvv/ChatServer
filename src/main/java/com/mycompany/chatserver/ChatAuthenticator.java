@@ -1,6 +1,8 @@
 package com.mycompany.chatserver;
 
 import java.sql.SQLException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class ChatAuthenticator extends com.sun.net.httpserver.BasicAuthenticator {
 
@@ -15,8 +17,8 @@ public class ChatAuthenticator extends com.sun.net.httpserver.BasicAuthenticator
         
         try {
             return db.authenticateUser(username, password);
-        } catch (SQLException e) {
-            e.printStackTrace();
+        } catch (SQLException ex) {
+            
         }
         return false;
     }

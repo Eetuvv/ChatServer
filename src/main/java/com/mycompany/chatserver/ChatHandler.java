@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -44,7 +45,22 @@ public class ChatHandler implements HttpHandler {
     private void handlePostRequest(HttpExchange exchange) throws IOException {
         // Handle POST request (client sent new chat message)
 
-        String errorResponse = "";
+        // Get query from URI, if it's not null, set channel variable to query value
+        // Else, set channel to default channel 'main'
+        URI requestURI = exchange.getRequestURI();
+        String query = requestURI.getQuery();
+
+        String channel = "main";
+
+        if (query != null) {
+            String split[] = query.split("=");
+
+            if (split[0].equals("channel")) {
+                channel = split[1];
+            }
+        }
+
+        String response = "";
         int code = 200;
 
         try {
@@ -56,14 +72,14 @@ public class ChatHandler implements HttpHandler {
             if (headers.containsKey("Content-length")) {
                 contentLength = Integer.valueOf(headers.get("Content-Length").get(0));
             } else {
-                errorResponse = "Content-length not defined";
+                response = "Content-length not defined";
                 code = 411;
             }
 
             if (headers.containsKey("Content-Type")) {
                 contentType = headers.get("Content-Type").get(0);
             } else {
-                errorResponse = "No Content-Type specified in request";
+                response = "No Content-Type specified in request";
                 code = 400;
             }
 
@@ -87,37 +103,36 @@ public class ChatHandler implements HttpHandler {
                 String userName = chatMessage.get("user").toString();
                 String message = chatMessage.getString("message");
 
-                ChatMessage newMessage = new ChatMessage(sent, userName, message);
-
                 if (!text.isEmpty()) {
                     //Add message to database
+                    ChatMessage newMessage = new ChatMessage(sent, userName, message);
                     ChatDatabase db = ChatDatabase.getInstance();
-                    db.insertMessage(message, sent, userName);
+                    db.insertMessage(channel, newMessage);
 
                     exchange.sendResponseHeaders(200, -1);
                 } else {
-                    errorResponse = "Text was empty.";
+                    response = "Text was empty.";
                     code = 400;
                 }
 
             } else if (!contentType.isEmpty() && !contentType.equalsIgnoreCase("application/json")) {
-                errorResponse = "Content-Type must be application/json";
+                response = "Content-Type must be application/json";
                 code = 411;
             }
 
         } catch (JSONException e) {
             code = 400;
-            errorResponse = "Invalid JSON-file";
+            response = "Invalid JSON-file";
         }
 
         if (code < 200 || code > 299) {
 
-            byte[] bytes = errorResponse.getBytes("UTF-8");
+            byte[] bytes = response.getBytes("UTF-8");
 
             exchange.sendResponseHeaders(code, bytes.length);
 
             OutputStream os = exchange.getResponseBody();
-            os.write(errorResponse.getBytes("UTF-8"));
+            os.write(response.getBytes("UTF-8"));
             os.flush();
             os.close();
         }
@@ -127,6 +142,25 @@ public class ChatHandler implements HttpHandler {
 
     private void handleGetRequest(HttpExchange exchange) throws IOException {
         // Handle GET request (client wants to see messages)
+        
+        URI requestURI = exchange.getRequestURI();
+        String channel = "main";
+
+        // If no channel is specified in query, automatically redirect to main channel
+        if (requestURI.getQuery() == null) {
+            String mainChannel = "https://localhost:8001/chat?channel=main";
+
+            exchange.getResponseHeaders().add("Location", mainChannel);
+            exchange.sendResponseHeaders(302, -1);
+        } else {
+            String query = requestURI.getQuery();
+            
+            if (query != null) {
+                String split[] = query.split("=");
+                if (split[0].equals("channel")) {
+                    channel = split[1];
+                }
+            }
 
         try {
             ChatDatabase db = ChatDatabase.getInstance();
@@ -152,7 +186,7 @@ public class ChatHandler implements HttpHandler {
             //Formatter for timestamps
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSX");
 
-            ArrayList<ChatMessage> dbMessages = db.getMessages(messagesSince);
+            ArrayList<ChatMessage> dbMessages = db.getMessages(channel, messagesSince);
 
             if (dbMessages.isEmpty()) {
                 exchange.sendResponseHeaders(204, -1);
@@ -210,11 +244,12 @@ public class ChatHandler implements HttpHandler {
         } catch (IOException | JSONException e) {
             e.printStackTrace();
         }
-
-        exchange.close();
     }
 
-    private void handleBadRequest(HttpExchange exchange) throws IOException {
+    exchange.close ();
+}
+
+private void handleBadRequest(HttpExchange exchange) throws IOException {
         // Handle error if request not GET or POST
         String errorResponse = "Not supported";
 

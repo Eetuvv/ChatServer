@@ -1,6 +1,7 @@
 package com.mycompany.chatserver;
 
 import com.sun.net.httpserver.HttpContext;
+import com.sun.net.httpserver.HttpExchange;
 import java.net.InetSocketAddress;
 import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsParameters;
@@ -28,6 +29,7 @@ public class ChatServer {
 
             server.setHttpsConfigurator(new HttpsConfigurator(sslContext) {
 
+                @Override
                 public void configure(HttpsParameters params) {
                     InetSocketAddress remote = params.getClientAddress();
                     SSLContext c = getSSLContext();
@@ -37,12 +39,12 @@ public class ChatServer {
             });
 
             ChatAuthenticator auth = new ChatAuthenticator();
-            HttpContext chatContext = server.createContext("/chat", new ChatHandler());
+            HttpContext chatContext = server.createContext("/chat", new ChatHandler());            
             chatContext.setAuthenticator(auth);
 
             AdminAuthenticator adminAuth = new AdminAuthenticator();
             HttpContext adminContext = server.createContext("/admin", new AdminHandler(adminAuth));
-
+            
             server.createContext("/registration", new RegistrationHandler(auth));
 
             // Enable multithread support
@@ -56,10 +58,6 @@ public class ChatServer {
                     System.out.println("Invalid startup parameters");
                     System.out.println("Usage java -jar jar-file.jar dbname.db cert.jks c3rt-p4ssw0rd");
                     return;
-                } else {
-                    System.out.println(args[0]);
-                    System.out.println(args[1]);
-                    System.out.println(args[2]);
                 }
             } catch (Exception e) {
             }

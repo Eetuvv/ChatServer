@@ -10,8 +10,6 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -71,9 +69,8 @@ public class RegistrationHandler implements HttpHandler {
                     if (text.isEmpty()) {
                         code = 401;
                         errorResponse = "Error: text was empty.";
-                        
                     } else {
-
+                        
                         if (this.authenticator.addUser(username, password, email)) {
                             exchange.sendResponseHeaders(200, -1);
                         } else {
@@ -81,19 +78,17 @@ public class RegistrationHandler implements HttpHandler {
                             errorResponse = "Username is already registered";
                         }
                     }
-                    
                 } else {
                     //Return error code if headers don't match JSON-type
                     code = 400;
                     errorResponse = "Content-Type must be application/json";
                 }
-
             }
         } catch (JSONException e) {
             errorResponse = "JSON file not valid";
             code = 400;
-        } catch (SQLException ex) {
-            Logger.getLogger(RegistrationHandler.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
 
         if (code < 200 || code > 299) {

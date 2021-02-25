@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -103,14 +104,14 @@ public class AdminHandler implements HttpHandler {
 
                 JSONObject registrationMsg = new JSONObject(text);
 
-                String username = registrationMsg.get("username").toString();
+                String username = registrationMsg.get("adminname").toString();
                 String password = registrationMsg.getString("password");
 
                 if (this.authenticator.addAdmin(username, password)) {
                     exchange.sendResponseHeaders(200, -1);
                 } else {
                     responseCode = 403;
-                    response = "Admin is already registered";
+                    response = "Admin already exists";
                 }
 
             } else {
@@ -129,90 +130,111 @@ public class AdminHandler implements HttpHandler {
     private void handleGetRequest(HttpExchange exchange) throws IOException {
         // Handle GET request (client wants to see messages)
 
-        try {
-            ChatDatabase db = ChatDatabase.getInstance();
+        URI requestURI = exchange.getRequestURI();
+        String channel = "main";
 
-            Headers headers = exchange.getRequestHeaders();
+        // If no channel is specified in query, automatically redirect to main channel
+        if (requestURI.getQuery() == null) {
+            String mainChannel = "https://localhost:8001/chat?channel=main";
 
-            String lastModified = null;
-            LocalDateTime fromWhichDate = null;
-            long messagesSince = -1;
+            exchange.getResponseHeaders().add("Location", mainChannel);
+            exchange.sendResponseHeaders(302, -1);
+        } else {
+            String query = requestURI.getQuery();
 
-            if (headers.containsKey("If-Modified-Since")) {
-
-                lastModified = headers.get("If-Modified-Since").get(0);
-
-                ZonedDateTime zd = ZonedDateTime.parse(lastModified);
-                fromWhichDate = zd.toLocalDateTime();
-
-                messagesSince = fromWhichDate.toInstant(ZoneOffset.UTC).toEpochMilli();
-            } else {
-                System.out.println("No last-modified header found");
+            if (query != null) {
+                String split[] = query.split("=");
+                if (split[0].equals("channel")) {
+                    channel = split[1];
+                }
             }
 
-            //Formatter for timestamps
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSX");
+            try {
+                ChatDatabase db = ChatDatabase.getInstance();
 
-            ArrayList<ChatMessage> dbMessages = db.getMessages(messagesSince);
+                Headers headers = exchange.getRequestHeaders();
 
-            if (dbMessages.isEmpty()) {
-                exchange.sendResponseHeaders(204, -1);
-            } else {
+                String lastModified = null;
+                LocalDateTime fromWhichDate = null;
+                long messagesSince = -1;
 
-                //Sort messages by timestamp
-                Collections.sort(dbMessages, (ChatMessage lhs, ChatMessage rhs) -> lhs.sent.compareTo(rhs.sent));
+                if (headers.containsKey("If-Modified-Since")) {
 
-                //Create JSONArray to add messages to
-                JSONArray responseMessages = new JSONArray();
+                    lastModified = headers.get("If-Modified-Since").get(0);
 
-                LocalDateTime latest = null;
+                    ZonedDateTime zd = ZonedDateTime.parse(lastModified);
+                    fromWhichDate = zd.toLocalDateTime();
 
-                for (ChatMessage message : dbMessages) {
+                    messagesSince = fromWhichDate.toInstant(ZoneOffset.UTC).toEpochMilli();
+                } else {
+                    System.out.println("No last-modified header found");
+                }
 
-                    //Keep track of latest message in db
-                    if (latest == null || message.sent.isAfter(latest)) {
-                        latest = message.sent;
+                //Formatter for timestamps
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSX");
+
+                // TODO add channel
+                ArrayList<ChatMessage> dbMessages = db.getMessages(channel, messagesSince);
+
+                if (dbMessages.isEmpty()) {
+                    exchange.sendResponseHeaders(204, -1);
+                } else {
+
+                    //Sort messages by timestamp
+                    Collections.sort(dbMessages, (ChatMessage lhs, ChatMessage rhs) -> lhs.sent.compareTo(rhs.sent));
+
+                    //Create JSONArray to add messages to
+                    JSONArray responseMessages = new JSONArray();
+
+                    LocalDateTime latest = null;
+
+                    for (ChatMessage message : dbMessages) {
+
+                        //Keep track of latest message in db
+                        if (latest == null || message.sent.isAfter(latest)) {
+                            latest = message.sent;
+                        }
+
+                        //Format timestamps
+                        ZonedDateTime zonedDateTime = message.sent.atZone(ZoneId.of("UTC"));
+                        String formattedTimestamp = zonedDateTime.format(formatter);
+
+                        //Create new JSONObject with message details
+                        JSONObject json = new JSONObject();
+
+                        json.put("user", message.userName);
+                        json.put("message", message.message);
+                        json.put("sent", formattedTimestamp);
+
+                        //Add JSONObject to JSONArray
+                        responseMessages.put(json);
                     }
 
-                    //Format timestamps
-                    ZonedDateTime zonedDateTime = message.sent.atZone(ZoneId.of("UTC"));
-                    String formattedTimestamp = zonedDateTime.format(formatter);
+                    if (latest != null) {
+                        ZonedDateTime zonedDateTime = latest.atZone(ZoneId.of("UTC"));
+                        String latestFormatted = zonedDateTime.format(formatter);
 
-                    //Create new JSONObject with message details
-                    JSONObject json = new JSONObject();
+                        //Add last-modified header with value of latest msg timestamp
+                        exchange.getResponseHeaders().add("Last-Modified", latestFormatted);
+                    }
 
-                    json.put("user", message.userName);
-                    json.put("message", message.message);
-                    json.put("sent", formattedTimestamp);
+                    String JSON = responseMessages.toString();
+                    byte[] bytes = JSON.getBytes("UTF-8");
 
-                    //Add JSONObject to JSONArray
-                    responseMessages.put(json);
+                    exchange.sendResponseHeaders(200, bytes.length);
+
+                    OutputStream os = exchange.getResponseBody();
+                    os.write(bytes);
+
+                    os.flush();
+                    os.close();
                 }
-
-                if (latest != null) {
-                    ZonedDateTime zonedDateTime = latest.atZone(ZoneId.of("UTC"));
-                    String latestFormatted = zonedDateTime.format(formatter);
-
-                    //Add last-modified header with value of latest msg timestamp
-                    exchange.getResponseHeaders().add("Last-Modified", latestFormatted);
-                }
-
-                String JSON = responseMessages.toString();
-                byte[] bytes = JSON.getBytes("UTF-8");
-
-                exchange.sendResponseHeaders(200, bytes.length);
-
-                OutputStream os = exchange.getResponseBody();
-                os.write(bytes);
-
-                os.flush();
-                os.close();
+            } catch (IOException | JSONException e) {
+                e.printStackTrace();
             }
-        } catch (IOException | JSONException e) {
-            e.printStackTrace();
-        }
 
-        exchange.close();
+            exchange.close();
+        }
     }
 
     private void handleDeleteRequest(HttpExchange exchange) throws IOException {
@@ -241,7 +263,7 @@ public class AdminHandler implements HttpHandler {
                 responseCode = 400;
             }
 
-            if (contentType.equalsIgnoreCase("text/plain")) {
+            if (contentType.equalsIgnoreCase("application/json")) {
 
                 InputStream stream = exchange.getRequestBody();
 
@@ -252,8 +274,9 @@ public class AdminHandler implements HttpHandler {
 
                 stream.close();
 
-                String username = text;
-                System.out.println("text reader in adminhandler: " + username);
+                JSONObject user = new JSONObject(text);
+                
+                String username = user.getString("username");
 
                 if (!text.isEmpty()) {
                     //Delete user from database
