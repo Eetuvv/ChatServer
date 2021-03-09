@@ -1,7 +1,6 @@
 package com.mycompany.chatserver;
 
 import com.sun.net.httpserver.HttpContext;
-import com.sun.net.httpserver.HttpExchange;
 import java.net.InetSocketAddress;
 import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsParameters;
@@ -41,9 +40,6 @@ public class ChatServer {
             ChatAuthenticator auth = new ChatAuthenticator();
             HttpContext chatContext = server.createContext("/chat", new ChatHandler());            
             chatContext.setAuthenticator(auth);
-
-            AdminAuthenticator adminAuth = new AdminAuthenticator();
-            HttpContext adminContext = server.createContext("/admin", new AdminHandler(adminAuth));
             
             server.createContext("/registration", new RegistrationHandler(auth));
 
@@ -60,6 +56,7 @@ public class ChatServer {
                     return;
                 }
             } catch (Exception e) {
+                e.printStackTrace();
             }
 
             ChatDatabase database = ChatDatabase.getInstance();
@@ -83,11 +80,9 @@ public class ChatServer {
             }
         } catch (FileNotFoundException e) {
             System.out.println("Error: certificate not found!");
-            return;
         } catch (KeyStoreException e) {
             System.out.println("Error: Keystore " + args[1] + " not found");
         }
-
     }
 
     private static SSLContext chatServerSSLContext(String keystore, String pass) throws Exception {

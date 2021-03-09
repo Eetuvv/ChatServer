@@ -1,8 +1,6 @@
 package com.mycompany.chatserver;
 
 import java.sql.SQLException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 public class ChatAuthenticator extends com.sun.net.httpserver.BasicAuthenticator {
 
@@ -18,15 +16,14 @@ public class ChatAuthenticator extends com.sun.net.httpserver.BasicAuthenticator
         try {
             return db.authenticateUser(username, password);
         } catch (SQLException ex) {
-            
         }
         return false;
     }
 
-    public boolean addUser(String userName, String password, String email) throws SQLException {
+    public boolean addUser(String role, String userName, String password, String email) throws SQLException {
 
         ChatDatabase db = ChatDatabase.getInstance();
         
-        return db.addUser(userName, password, email);
+        return db.addUser(role, userName, password, email);
     }
 }

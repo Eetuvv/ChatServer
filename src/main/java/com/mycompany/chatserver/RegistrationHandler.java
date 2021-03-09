@@ -31,6 +31,7 @@ public class RegistrationHandler implements HttpHandler {
         try {
 
             if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+                
                 //Handle POST request
                 Headers headers = exchange.getRequestHeaders();
                 int contentLength = 0;
@@ -62,16 +63,17 @@ public class RegistrationHandler implements HttpHandler {
 
                     JSONObject registrationMsg = new JSONObject(text);
 
-                    String username = registrationMsg.get("username").toString();
-                    String password = registrationMsg.getString("password");
-                    String email = registrationMsg.getString("email");
+                    String username = registrationMsg.getJSONObject("userdetails").getString("username");
+                    String password = registrationMsg.getJSONObject("userdetails").getString("password");
+                    String email = registrationMsg.getJSONObject("userdetails").getString("email");
+                    String role = registrationMsg.getJSONObject("userdetails").getString("role");
 
+                   
                     if (text.isEmpty()) {
                         code = 401;
                         errorResponse = "Error: text was empty.";
                     } else {
-                        
-                        if (this.authenticator.addUser(username, password, email)) {
+                        if (this.authenticator.addUser(role, username, password, email)) {
                             exchange.sendResponseHeaders(200, -1);
                         } else {
                             code = 403;

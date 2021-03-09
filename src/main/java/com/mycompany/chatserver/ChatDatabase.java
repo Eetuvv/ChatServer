@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.Base64;
 import org.apache.commons.codec.digest.Crypt;
@@ -24,7 +25,6 @@ public class ChatDatabase {
     private ChatDatabase() {
         secureRandom = new SecureRandom();
     }
-    
 
     public static synchronized ChatDatabase getInstance() {
         //Function is synchronized to prevent creating multiple instances of the same object
@@ -41,7 +41,6 @@ public class ChatDatabase {
         Boolean exists = f.exists() && !f.isDirectory();
 
         databaseName = dbName;
-        //DriverManager.getConnection(databaseName);
 
         if (exists == false) {
             initializeDatabase();
@@ -56,9 +55,9 @@ public class ChatDatabase {
 
             Statement s = db.createStatement();
 
-            s.execute("CREATE TABLE IF NOT EXISTS Admins(id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT, adminname TEXT UNIQUE, password TEXT, salt TEXT)");
+            //s.execute("CREATE TABLE IF NOT EXISTS Admins(id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT, adminname TEXT UNIQUE, password TEXT, salt TEXT)");
             s.execute("CREATE TABLE IF NOT EXISTS Users(id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT, username TEXT UNIQUE, password TEXT, email TEXT, salt TEXT)");
-            s.execute("CREATE TABLE IF NOT EXISTS Messages(id INTEGER PRIMARY KEY AUTOINCREMENT, channel TEXT, message TEXT, timestamp INTEGER, username REFERENCES Users)");
+            s.execute("CREATE TABLE IF NOT EXISTS Messages(id INTEGER PRIMARY KEY AUTOINCREMENT, channel TEXT, tag TEXT, message TEXT, timestamp INTEGER, username REFERENCES Users)");
 
             System.out.println("Database created.");
             System.out.println("Connected to database.");
@@ -66,7 +65,6 @@ public class ChatDatabase {
             s.close();
             return true;
         } catch (SQLException e) {
-            e.printStackTrace();
             System.out.println("Error creating new database.");
         }
         return false;
@@ -87,51 +85,7 @@ public class ChatDatabase {
         return hashedPassword + " " + salt;
     }
 
-    public boolean addAdmin(String name, String password) {
-
-        // Administrator has admin role with administrator rights
-        String role = "admin";
-        // Hash password with salt
-        String split[] = getHashedPasswordWithSalt(password).split(" ");
-        String hashedPassword = split[0];
-        String salt = split[1];
-
-        Statement s;
-        try (Connection db = DriverManager.getConnection(databaseName)) {
-
-            s = db.createStatement();
-
-            //Get count of users with the same username in database, should be 0
-            PreparedStatement p = db.prepareStatement("SELECT COUNT(Admins.adminname) AS COUNT FROM Admins WHERE Admins.adminname = ?");
-            p.setString(1, name);
-
-            ResultSet r = p.executeQuery();
-
-            //Add user to database if admin name is available
-            try {
-                if (r.getInt("COUNT") == 0) {
-                    s.execute("INSERT INTO Admins(role, adminname, password, salt) VALUES ('" + role + "', '" + name + "', '" + hashedPassword + "','" + salt + "')");
-                    System.out.println("Added administrator " + name + " to database.");
-                    return true;
-                } else {
-                    System.out.println("Administrator already exists.");
-                    return false;
-                }
-            } catch (SQLException e) {
-                System.out.println("Error when adding user credentials to database.");
-            }
-            s.close();
-
-        } catch (SQLException e) {
-            System.out.println("Could not connect to database.");
-        }
-        return false;
-    }
-
-    public boolean addUser(String username, String password, String email) throws SQLException {
-
-        // User has role user with user rights
-        String role = "user";
+    public boolean addUser(String role, String username, String password, String email) throws SQLException {
 
         // Hash password with salt
         String split[] = getHashedPasswordWithSalt(password).split(" ");
@@ -153,7 +107,7 @@ public class ChatDatabase {
             try {
                 if (r.getInt("COUNT") == 0) {
                     s.execute("INSERT INTO Users(role, username, password, email, salt) VALUES ('" + role + "', '" + username + "', '" + hashedPassword + "','" + email + "','" + salt + "')");
-                    System.out.println("Added user " + username + " to database.");
+                    System.out.println("Added user " + username + " with role " + role + " to database.");
                     return true;
 
                 } else {
@@ -203,41 +157,7 @@ public class ChatDatabase {
         return false;
     }
 
-    public boolean authenticateAdmin(String name, String password) throws SQLException {
-        Statement s;
-        try (Connection db = DriverManager.getConnection(databaseName)) {
-
-            s = db.createStatement();
-
-            //Get user info matching given username and password
-            PreparedStatement p = db.prepareStatement("SELECT Admins.adminname, Admins.password FROM Admins WHERE adminname = ?");
-
-            p.setString(1, name);
-
-            ResultSet r = p.executeQuery();
-
-            if (r.next()) {
-                String hashedPassword = r.getString("password");
-                //Check if username and password match
-                //Check if hashed password in database matches new hashed password with salt
-                if (r.getString("adminname").equals(name) && hashedPassword.equals(Crypt.crypt(password, hashedPassword))) {
-                    return true;
-                } else {
-                    System.out.println("Wrong username or password");
-                    return false;
-                }
-            } else {
-                System.out.println("Invalid admin credentials");
-            }
-            s.close();
-
-        } catch (SQLException e) {
-            System.out.println("Could not connect to database");
-        }
-        return false;
-    }
-
-    public void deleteUser(String username) {
+    public void adminDeleteUser(String username) {
         Statement s;
 
         try (Connection db = DriverManager.getConnection(databaseName)) {
@@ -260,7 +180,7 @@ public class ChatDatabase {
         }
     }
 
-    public boolean editUser(String currentUsername, String username, String password, String email) throws SQLException {
+    public boolean adminEditUser(String user, String username, String password, String email, String role) throws SQLException {
 
         // Admin can edit user's info, by giving the current username and updated info
         // Hash new password with salt
@@ -271,15 +191,16 @@ public class ChatDatabase {
         try (Connection db = DriverManager.getConnection(databaseName)) {
             s = db.createStatement();
 
-            PreparedStatement p = db.prepareStatement("UPDATE Users SET username = ? , password = ?, email = ? WHERE username = ?");
+            PreparedStatement p = db.prepareStatement("UPDATE Users SET username = ? , password = ?, email = ?, role = ? WHERE username = ?");
 
             p.setString(1, username);
             p.setString(2, hashedPassword);
             p.setString(3, email);
-            p.setString(4, currentUsername);
+            p.setString(4, user);
+            p.setString(5, role);
 
             if (p.executeUpdate() != 0) {
-                System.out.println("User " + currentUsername + " updated");
+                System.out.println("User " + user + " edited.");
                 return true;
             } else {
                 System.out.println("Error updating user data: could not find user");
@@ -288,28 +209,33 @@ public class ChatDatabase {
         }
     }
 
-    public void insertMessage(String channel, ChatMessage message) {
+    public void insertMessage(ChatMessage message) {
         Statement s;
 
         long time = message.sent.toInstant(ZoneOffset.UTC).toEpochMilli();
-
         String user = message.userName;
         String msg = message.message;
+        String channel = message.channel;
+        String tag = "";
 
         try (Connection db = DriverManager.getConnection(databaseName)) {
             s = db.createStatement();
 
-            String msgBody = "INSERT INTO Messages(channel, message, timestamp, username) VALUES ('" + channel + "','" + msg + "','" + time + "','" + user + "')";
+            String msgBody = "INSERT INTO Messages(channel, message, timestamp, username, tag) VALUES (?, ?, ?, ?, ?)";
+            PreparedStatement p = db.prepareStatement(msgBody);
 
-            try {
-                s.executeUpdate(msgBody);
-                System.out.println("Message successfully inserted");
-            } catch (SQLException e) {
-                System.out.println("Error inserting message into database.");
-            }
+            p.setString(1, channel);
+            p.setString(2, msg);
+            p.setLong(3, time);
+            p.setString(4, user);
+            p.setString(5, tag);
+
+            p.executeUpdate();
+            System.out.println("Message inserted");
             s.close();
         } catch (SQLException e) {
-            System.out.println("Could not connect to database.");
+            e.printStackTrace();
+            System.out.println("Error inserting message into database.");
         }
     }
 
@@ -319,22 +245,25 @@ public class ChatDatabase {
         String msg;
         Long timestamp;
         String user;
+        String tag;
 
         Statement s;
         try (Connection db = DriverManager.getConnection(databaseName)) {
             s = db.createStatement();
 
-            String query = "";
+            String query;
             PreparedStatement p;
 
             if (messagesSince == -1) {
                 //Get 100 newest messages from db if no last-modified header is found
-                query = "SELECT * FROM Messages WHERE channel = ? ORDER BY timestamp DESC LIMIT 100";
+                query = "SELECT Messages.message, Messages.timestamp, Messages.username, Messages.tag"
+                        + " FROM Messages WHERE channel = ? ORDER BY timestamp DESC LIMIT 100";
                 p = db.prepareStatement(query);
                 p.setString(1, channel);
             } else {
-                query = "SELECT Messages.message, Messages.timestamp, Messages.username "
-                        + "FROM Messages WHERE channel =  Messages.timestamp > ? ORDER BY timestamp";
+                //If last-modified header is found get all new messages
+                query = "SELECT Messages.message, Messages.timestamp, Messages.username, Messages.tag "
+                        + "FROM Messages WHERE channel = ? Messages.timestamp > ? ORDER BY timestamp";
                 p = db.prepareStatement(query);
                 p.setString(1, channel);
                 p.setLong(2, messagesSince);
@@ -347,12 +276,12 @@ public class ChatDatabase {
                 msg = r.getString("message");
                 timestamp = r.getLong("timestamp");
                 user = r.getString("username");
-
+                tag = r.getString("tag");
                 //Convert long to LocalDateTime
                 LocalDateTime time = LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneOffset.UTC);
 
                 //Create ChatMessage object from variables, and add it to arraylist
-                ChatMessage message = new ChatMessage(time, user, msg);
+                ChatMessage message = new ChatMessage(channel, time, user, msg, tag);
                 messages.add(message);
             }
             s.close();
@@ -360,5 +289,70 @@ public class ChatDatabase {
             System.out.println("Could not connect to database.");
         }
         return messages;
+    }
+
+    public void deleteMessage(int messageID, String username) {
+        Statement s;
+
+        LocalDateTime time = LocalDateTime.now();
+        long timestamp = time.toInstant(ZoneOffset.UTC).toEpochMilli();
+        System.out.println("delete timestamp " + timestamp);
+        String tag = "<Deleted>";
+
+        try (Connection db = DriverManager.getConnection(databaseName)) {
+            s = db.createStatement();
+
+            //String query = "DELETE FROM Messages WHERE id = ? AND username = ?)";
+            String query = "Update Messages SET message = ?, tag = ?, timestamp = ? WHERE id = ? AND username = ?";
+            PreparedStatement p = db.prepareStatement(query);
+
+            p.setString(1, "");
+            p.setString(2, tag);
+            p.setLong(3, timestamp);
+            p.setInt(4, messageID);
+            p.setString(5, username);
+
+            int result = p.executeUpdate();
+
+            if (result != 0) {
+                System.out.println("Message deleted.");
+            } else {
+                System.out.println("Could not delete message. Invalid message ID or username");
+            }
+            s.close();
+        } catch (SQLException e) {
+            System.out.println("Could not connect to database.");
+        }
+    }
+
+    public void editMessage(int messageID, String username, String newMessage) throws SQLException {
+        
+        LocalDateTime time = LocalDateTime.now();
+        long timestamp = time.toInstant(ZoneOffset.UTC).toEpochMilli();
+        System.out.println("delete timestamp " + timestamp);
+        String tag = "<Edited>";
+        Statement s;
+        try (Connection db = DriverManager.getConnection(databaseName)) {
+
+            String query = "Update Messages SET message = ?, tag = ?, timestamp = ? WHERE id = ? AND username = ?";
+
+            PreparedStatement p = db.prepareStatement(query);
+
+            p.setString(1, newMessage);
+            p.setString(2, tag);
+            p.setLong(3, timestamp);
+            p.setInt(4, messageID);
+            p.setString(5, username);
+
+            int result = p.executeUpdate();
+
+            if (result != 0) {
+                System.out.println("Message succesfully edited.");
+            } else {
+                System.out.println("Error editing message.");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 }
