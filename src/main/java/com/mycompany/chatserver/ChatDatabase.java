@@ -325,7 +325,7 @@ public class ChatDatabase {
 
     public void editMessage(int messageID, String username, String newMessage) throws SQLException {
         
-        //TODO dont edit message that has been deleted
+        
         LocalDateTime time = LocalDateTime.now();
         long timestamp = time.toInstant(ZoneOffset.UTC).toEpochMilli();
         String tag = "<edited>";
@@ -333,6 +333,7 @@ public class ChatDatabase {
         try (Connection db = DriverManager.getConnection(databaseName)) {
             
             s = db.createStatement();
+            // Edit message only if it doesn't have deleted tag
             String query = "Update Messages SET message = ?, tag = ?, timestamp = ? WHERE id = ? AND username = ? AND tag IS NOT ?";
 
             PreparedStatement p = db.prepareStatement(query);
