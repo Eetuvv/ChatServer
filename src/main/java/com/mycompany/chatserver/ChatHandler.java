@@ -39,7 +39,11 @@ public class ChatHandler implements HttpHandler {
         if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
             handlePostRequest(exchange);
         } else if (exchange.getRequestMethod().equalsIgnoreCase("GET")) {
-            handleGetRequest(exchange);
+            try {
+                handleGetRequest(exchange);
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
         } else if (exchange.getRequestMethod().equalsIgnoreCase("PUT")) {
             handlePutRequest(exchange);
         } else if (exchange.getRequestMethod().equalsIgnoreCase("DELETE")) {
@@ -103,7 +107,7 @@ public class ChatHandler implements HttpHandler {
 
                 String dateStr = chatMessage.getString("sent");
                 OffsetDateTime odt = OffsetDateTime.parse(dateStr);
-               
+
                 LocalDateTime sent = odt.toLocalDateTime();
                 String userName = chatMessage.get("user").toString();
                 String message = chatMessage.getString("message");
@@ -125,7 +129,8 @@ public class ChatHandler implements HttpHandler {
                 response = "Content-Type must be application/json";
                 responseCode = 411;
             }
-         } catch (JSONException e) {
+        } catch (JSONException e) {
+            e.printStackTrace();
             System.out.println("Invalid JSON-file");
             responseCode = 400;
             response = "Invalid JSON-file";
@@ -134,7 +139,7 @@ public class ChatHandler implements HttpHandler {
         }
     }
 
-    private void handleGetRequest(HttpExchange exchange) throws IOException {
+    private void handleGetRequest(HttpExchange exchange) throws IOException, SQLException {
         // Handle GET request (client wants to see messages)
         ChatDatabase db = ChatDatabase.getInstance();
         Headers headers = exchange.getRequestHeaders();
@@ -143,9 +148,9 @@ public class ChatHandler implements HttpHandler {
         LocalDateTime fromWhichDate = null;
         long messagesSince = -1;
         if (headers.containsKey("If-Modified-Since")) {
-            
+
             lastModified = headers.get("If-Modified-Since").get(0);
-            
+
             try {
                 ZonedDateTime zd = ZonedDateTime.parse(lastModified);
                 fromWhichDate = zd.toLocalDateTime();
@@ -153,7 +158,7 @@ public class ChatHandler implements HttpHandler {
             } catch (DateTimeException e) {
                 System.out.println("Invalid date in if-modified-since header");
             }
-            
+
         } else {
             System.out.println("No last-modified header found");
         }
@@ -163,89 +168,126 @@ public class ChatHandler implements HttpHandler {
             response = "No Content-Type specified in request";
             responseCode = 400;
         }
-        String channel = "channel";
-        /*if (contentType.equalsIgnoreCase("application/json")) {
-        
-        InputStream stream = exchange.getRequestBody();
-        
-        String text = new BufferedReader(new InputStreamReader(stream,
-        StandardCharsets.UTF_8))
-        .lines()
-        .collect(Collectors.joining("\n"));
-        
-        stream.close();
-        
-        JSONObject requestBody = new JSONObject(text);
-        if (!text.isEmpty()) {
-        channel = requestBody.getString("channel");
-        }
-        
-        } else if (!contentType.isEmpty() && !contentType.equalsIgnoreCase("application/json")) {
-        response = "Content-Type must be application/json";
-        responseCode = 411;
-        }*/
-        //Formatter for timestamps
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSX");
-        ArrayList<ChatMessage> dbMessages = db.getMessages(channel, messagesSince);
-        if (dbMessages.isEmpty()) {
-            exchange.sendResponseHeaders(204, -1);
-        } else {
-            
-            //Sort messages by timestamp
-            Collections.sort(dbMessages, (ChatMessage lhs, ChatMessage rhs) -> lhs.sent.compareTo(rhs.sent));
-            
-            //Create JSONArray to add messages to
-            JSONArray responseMessages = new JSONArray();
-            
-            LocalDateTime latest = null;
-            
-            for (ChatMessage message : dbMessages) {
-                
-                //Keep track of latest message in db
-                if (latest == null || message.sent.isAfter(latest)) {
-                    latest = message.sent;
+        String channel = null;
+        String action = null;
+
+        try {
+            if (contentType.equalsIgnoreCase("application/json")) {
+
+                InputStream stream = exchange.getRequestBody();
+
+                String text = new BufferedReader(new InputStreamReader(stream,
+                        StandardCharsets.UTF_8))
+                        .lines()
+                        .collect(Collectors.joining("\n"));
+
+                stream.close();
+
+                JSONObject requestBody = new JSONObject(text);
+                if (!text.isEmpty()) {
+                    //channel = requestBody.getString("channel");
+                    action = requestBody.getString("action");
+                    channel = "channel";
+
+                } else {
+                    System.out.println("Text was empty.");
                 }
-                
-                //Format timestamps
-                ZonedDateTime zonedDateTime = message.sent.atZone(ZoneId.of("UTC"));
-                String formattedTimestamp = zonedDateTime.format(formatter);
-                
-                //Create new JSONObject with message details
-                JSONObject json = new JSONObject();
-                
-                json.put("user", message.userName);
-                json.put("message", message.message);
-                json.put("sent", formattedTimestamp);
-                json.put("tag", message.tag);
-                
-                //Add JSONObject to JSONArray
-                responseMessages.put(json);
+
+            } else if (!contentType.isEmpty() && !contentType.equalsIgnoreCase("application/json")) {
+                response = "Content-Type must be application/json";
+                responseCode = 411;
             }
-            
-            if (latest != null) {
-                ZonedDateTime zonedDateTime = latest.atZone(ZoneId.of("UTC"));
-                String latestFormatted = zonedDateTime.format(formatter); 
-                
-                //Add last-modified header with value of latest msg timestamp
-                exchange.getResponseHeaders().add("Last-Modified", latestFormatted);
-            }
-            
-            String JSON = responseMessages.toString();
-            byte[] bytes = JSON.getBytes("UTF-8");
-            
+        } catch (JSONException e) {
+            response = "Invalid JSON-file";
+            responseCode = 411;
+            System.out.println("Invalid JSON-file");
+            e.printStackTrace();
+        }
+
+        // List all different channels available
+        if (action.equals("listChannels")) {
+            ArrayList<String> channels = db.listChannels();
+            String responseChannels = channels.toString();
+            byte[] bytes = responseChannels.getBytes("UTF-8");
+
             exchange.sendResponseHeaders(200, bytes.length);
-            
+
             OutputStream os = exchange.getResponseBody();
             os.write(bytes);
-            
+
             os.flush();
             os.close();
+            
+        // Return messages from specified channel
+        } else if (action.equals("getMessages")) {
+
+            //Formatter for timestamps
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSX");
+            ArrayList<ChatMessage> dbMessages = db.getMessages(channel, messagesSince);
+            if (dbMessages.isEmpty()) {
+                exchange.sendResponseHeaders(204, -1);
+            } else {
+
+                //Sort messages by timestamp
+                Collections.sort(dbMessages, (ChatMessage lhs, ChatMessage rhs) -> lhs.sent.compareTo(rhs.sent));
+
+                //Create JSONArray to add messages to
+                JSONArray responseMessages = new JSONArray();
+
+                LocalDateTime latest = null;
+
+                for (ChatMessage message : dbMessages) {
+
+                    //Keep track of latest message in db
+                    if (latest == null || message.sent.isAfter(latest)) {
+                        latest = message.sent;
+                    }
+
+                    //Format timestamps
+                    ZonedDateTime zonedDateTime = message.sent.atZone(ZoneId.of("UTC"));
+                    String formattedTimestamp = zonedDateTime.format(formatter);
+
+                    //Create new JSONObject with message details
+                    JSONObject json = new JSONObject();
+
+                    json.put("user", message.userName);
+                    json.put("message", message.message);
+                    json.put("sent", formattedTimestamp);
+                    json.put("tag", message.tag);
+
+                    //Add JSONObject to JSONArray
+                    responseMessages.put(json);
+                }
+
+                if (latest != null) {
+                    ZonedDateTime zonedDateTime = latest.atZone(ZoneId.of("UTC"));
+                    String latestFormatted = zonedDateTime.format(formatter);
+
+                    //Add last-modified header with value of latest msg timestamp
+                    exchange.getResponseHeaders().add("Last-Modified", latestFormatted);
+                }
+
+                String JSON = responseMessages.toString();
+                byte[] bytes = JSON.getBytes("UTF-8");
+
+                exchange.sendResponseHeaders(200, bytes.length);
+
+                OutputStream os = exchange.getResponseBody();
+                os.write(bytes);
+
+                os.flush();
+                os.close();
+            }
+        } else {
+            response = "Invalid action specified. To get messages, use action getMessages, and specify channel."
+                    + " To list channels, use action listChannels.";
+            responseCode = 400;
         }
     }
 
     private void handlePutRequest(HttpExchange exchange) throws IOException {
 
-        //Handle PUT-request (admin wants to edit user)
+        //Handle PUT-request
         response = "";
         responseCode = 200;
 
@@ -285,7 +327,7 @@ public class ChatHandler implements HttpHandler {
 
                     String user = requestBody.getString("user");
                     String action = requestBody.getString("action");
-                    
+
                     String role = null;
                     int messageID = 0;
                     String message = null;
@@ -332,7 +374,7 @@ public class ChatHandler implements HttpHandler {
     }
 
     private void handleDeleteRequest(HttpExchange exchange) throws IOException {
-        // Handle DELETE request (admin wants to delete user)
+        // Handle DELETE request
 
         response = "";
         responseCode = 200;
@@ -375,7 +417,6 @@ public class ChatHandler implements HttpHandler {
                     String user = requestBody.getString("user");
                     String action = requestBody.getString("action");
 
-                    
                     ChatDatabase db = ChatDatabase.getInstance();
 
                     //Check if user has admin rights before deleting user from db

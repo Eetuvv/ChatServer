@@ -11,7 +11,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.security.SecureRandom;
 import java.time.Instant;
-import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.Base64;
 import org.apache.commons.codec.digest.Crypt;
@@ -296,8 +295,7 @@ public class ChatDatabase {
 
         LocalDateTime time = LocalDateTime.now();
         long timestamp = time.toInstant(ZoneOffset.UTC).toEpochMilli();
-        System.out.println("delete timestamp " + timestamp);
-        String tag = "<Deleted>";
+        String tag = "<deleted>";
 
         try (Connection db = DriverManager.getConnection(databaseName)) {
             s = db.createStatement();
@@ -327,14 +325,15 @@ public class ChatDatabase {
 
     public void editMessage(int messageID, String username, String newMessage) throws SQLException {
         
+        //TODO dont edit message that has been deleted
         LocalDateTime time = LocalDateTime.now();
         long timestamp = time.toInstant(ZoneOffset.UTC).toEpochMilli();
-        System.out.println("delete timestamp " + timestamp);
-        String tag = "<Edited>";
+        String tag = "<edited>";
         Statement s;
         try (Connection db = DriverManager.getConnection(databaseName)) {
-
-            String query = "Update Messages SET message = ?, tag = ?, timestamp = ? WHERE id = ? AND username = ?";
+            
+            s = db.createStatement();
+            String query = "Update Messages SET message = ?, tag = ?, timestamp = ? WHERE id = ? AND username = ? AND tag IS NOT ?";
 
             PreparedStatement p = db.prepareStatement(query);
 
@@ -343,16 +342,34 @@ public class ChatDatabase {
             p.setLong(3, timestamp);
             p.setInt(4, messageID);
             p.setString(5, username);
+            p.setString(6, "<deleted>");
 
             int result = p.executeUpdate();
 
             if (result != 0) {
                 System.out.println("Message succesfully edited.");
             } else {
-                System.out.println("Error editing message.");
+                System.out.println("Error editing message. Message does not exist. ");
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
+    }
+    
+    public ArrayList listChannels() throws SQLException {
+        //Returns a list containing all different channels
+        ArrayList<String> channels = new ArrayList<>();
+        Statement s;
+        try (Connection db = DriverManager.getConnection(databaseName)) {
+            s = db.createStatement();
+            PreparedStatement p = db.prepareStatement("SELECT DISTINCT channel FROM messages");
+            
+            ResultSet r = p.executeQuery();
+            
+            while (r.next()) {
+                channels.add(r.getString("channel"));
+            }
+        }
+        return channels;
     }
 }
