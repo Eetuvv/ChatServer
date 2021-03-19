@@ -1,7 +1,8 @@
 # ChatServer
 Chat Server made in Programming 3 course. Server handles HTTP requests. User can register a new user with username, password and email, login with user, and post messages that are saved to  SQLite database.  
-Passwords are encrypted for extra security.
-
+Passwords are encrypted for extra security.  
+<br>
+Client coming soon..
 
 # Startup parameters
 To start the server, pass these tree startup parameters to server, <strong>in this order:</strong> 
