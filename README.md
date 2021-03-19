@@ -1,5 +1,8 @@
 # ChatServer
-Chat Server made in Programming 3 course. Server handles HTTP requests. User can register a new user with username, password and email, login with user, and post messages that are saved to  SQLite database.  
+Chat Server made in Programming 3 course.
+<br>
+<br>
+Server handles HTTP requests. User can register a new user with username, password and email, login with user, and post messages that are saved to  SQLite database.  
 Passwords are encrypted for extra security.  
 <br>
 Client coming soon..
