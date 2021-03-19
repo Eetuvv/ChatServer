@@ -12,3 +12,5 @@ To start the server, pass these tree startup parameters to server, <strong>in th
 3. Password of the certificate
 
 For example: java -jar target/my-server-jar.jar chat-database.db keystore.jks mypassword123
+
+If using the example certificate "keystore.jks", the password is "123456789". 
