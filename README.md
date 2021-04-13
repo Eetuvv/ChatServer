@@ -37,7 +37,6 @@ __HTTP body's for specific requests have to follow these formats__
      }
 }
 </pre>
-<br></br>
 ## <strong>__/chat__</strong>  
 
 ### POST-request
@@ -80,10 +79,10 @@ Edit user (with admin rights)
     “action” : “editUser",
     "userdetails": // Details of user to be edited
     {
-      “username : “currentUsername” // Current username of the user to be edited
-      “newUsername” : “updatedUsername”, // New user details || or old details if not updating everything
-      “password” : “updatedPassword”, 
-      “email” : “updatedEmail”
+      “currentUsername" : “currentUsername” // Current username of the user to be edited
+      “updatedUsername” : “updatedUsername”, // New user details || or old details if not updating everything
+      “updatedPassword” : “updatedPassword”, 
+      “updatedEmail” : “updatedEmail”
     }
 }
 </pre>
