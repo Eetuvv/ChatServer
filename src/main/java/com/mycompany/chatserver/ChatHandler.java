@@ -334,15 +334,21 @@ public class ChatHandler implements HttpHandler {
 
                     ChatDatabase db = ChatDatabase.getInstance();
 
-                    //Check if user has admin rights before deleting user from db
-                    if (action.equals("remove")) {
+                    //Check if user has admin rights before editing user in db
+                    if (action.equals("editUser")) {
                         role = requestBody.getString("role");
                         if (role.equals("admin")) {
-                            db.adminDeleteUser(user);
+                            JSONObject userDetails = requestBody.getJSONObject("userdetails");
+                            String currentUsername = userDetails.getString("currentUsername");
+                            String updatedUsername = userDetails.getString("updatedUsername");
+                            String updatedPassword = userDetails.getString("updatedPassword");
+                            String updatedEmail = userDetails.getString("updatedEmail");
+                            
+                            db.adminEditUser(currentUsername, updatedUsername, updatedPassword, updatedEmail, role);
                             exchange.sendResponseHeaders(200, -1);
                         } else {
-                            System.out.println("Only admin is authorized to remove users.");
-                            response = "Not authorized: admin rights required to remove user";
+                            System.out.println("Only admin is authorized to edit users.");
+                            response = "Not authorized: admin rights required to edit user";
                             responseCode = 401;
                         }
 
