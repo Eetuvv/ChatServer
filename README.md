@@ -52,15 +52,16 @@ Post a message
 ### GET-request
 #### Get requests to /chat are made using queries  
 If no query is specified, server will redirect to: "https://localhost:8001/chat?channel=main"
-
 ##### Get messages from channel
+<pre>
 Query for choosing channel: <strong>?channel=channelname</strong>
 Example: "https://localhost:8001/chat?channel=channelname"  
-
+</pre>
 ##### List available channels
+<pre>
 Query for listing all available channels: <strong>?listChannels</strong>  
 Example: "https://localhost:8001/chat?listChannels"
-<br>
+</pre>
 ### PUT-request 
 Edit message
 <pre>
