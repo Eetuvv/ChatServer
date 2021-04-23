@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.time.DateTimeException;
@@ -141,16 +142,45 @@ public class ChatHandler implements HttpHandler {
 
     private void handleGetRequest(HttpExchange exchange) throws IOException, SQLException {
         // Handle GET request (client wants to see messages)
+
+        URI requestURI = exchange.getRequestURI();
+        String channel = "main";
+        String action = null;
+
+        if (requestURI.getQuery() == null) {
+            String mainChannel = "https://localhost:8001/chat?channel=main";
+
+            exchange.getResponseHeaders().add("Location", mainChannel);
+            exchange.sendResponseHeaders(302, -1);
+        } else {
+            String query = requestURI.getQuery();
+            if (query != null) {
+
+                String split[] = query.split("=");
+                // Split query string, should be "channel" or "listChannels"
+                String splitQuery = split[0];
+                if (splitQuery.equals("channel")) {
+                    channel = split[1];
+                    action = "getMessages";
+                } else if (splitQuery.equals("listChannels")) {
+                    action = "listChannels";
+                }
+
+            } else {
+                responseCode = 400;
+                response = "Bad query";
+            }
+        }
+
         ChatDatabase db = ChatDatabase.getInstance();
         Headers headers = exchange.getRequestHeaders();
         String lastModified = null;
         String contentType = null;
         LocalDateTime fromWhichDate = null;
         long messagesSince = -1;
+        
         if (headers.containsKey("If-Modified-Since")) {
-
             lastModified = headers.get("If-Modified-Since").get(0);
-
             try {
                 ZonedDateTime zd = ZonedDateTime.parse(lastModified);
                 fromWhichDate = zd.toLocalDateTime();
@@ -168,41 +198,6 @@ public class ChatHandler implements HttpHandler {
             response = "No Content-Type specified in request";
             responseCode = 400;
         }
-        String channel = null;
-        String action = null;
-
-        try {
-            if (contentType.equalsIgnoreCase("application/json")) {
-
-                InputStream stream = exchange.getRequestBody();
-
-                String text = new BufferedReader(new InputStreamReader(stream,
-                        StandardCharsets.UTF_8))
-                        .lines()
-                        .collect(Collectors.joining("\n"));
-
-                stream.close();
-
-                JSONObject requestBody = new JSONObject(text);
-                if (!text.isEmpty()) {
-                    //channel = requestBody.getString("channel");
-                    action = requestBody.getString("action");
-                    channel = "channel";
-
-                } else {
-                    System.out.println("Text was empty.");
-                }
-
-            } else if (!contentType.isEmpty() && !contentType.equalsIgnoreCase("application/json")) {
-                response = "Content-Type must be application/json";
-                responseCode = 411;
-            }
-        } catch (JSONException e) {
-            response = "Invalid JSON-file";
-            responseCode = 411;
-            System.out.println("Invalid JSON-file");
-            e.printStackTrace();
-        }
 
         // List all different channels available
         if (action.equals("listChannels")) {
@@ -217,8 +212,8 @@ public class ChatHandler implements HttpHandler {
 
             os.flush();
             os.close();
-            
-        // Return messages from specified channel
+
+            // Return messages from specified channel
         } else if (action.equals("getMessages")) {
 
             //Formatter for timestamps
@@ -227,7 +222,6 @@ public class ChatHandler implements HttpHandler {
             if (dbMessages.isEmpty()) {
                 exchange.sendResponseHeaders(204, -1);
             } else {
-
                 //Sort messages by timestamp
                 Collections.sort(dbMessages, (ChatMessage lhs, ChatMessage rhs) -> lhs.sent.compareTo(rhs.sent));
 
@@ -343,7 +337,7 @@ public class ChatHandler implements HttpHandler {
                             String updatedUsername = userDetails.getString("updatedUsername");
                             String updatedPassword = userDetails.getString("updatedPassword");
                             String updatedEmail = userDetails.getString("updatedEmail");
-                            
+
                             db.adminEditUser(currentUsername, updatedUsername, updatedPassword, updatedEmail, role);
                             exchange.sendResponseHeaders(200, -1);
                         } else {

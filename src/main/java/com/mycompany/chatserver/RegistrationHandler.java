@@ -87,6 +87,8 @@ public class RegistrationHandler implements HttpHandler {
                 }
             }
         } catch (JSONException e) {
+            e.printStackTrace();
+            System.out.println("Invalid JSON-file");
             errorResponse = "JSON file not valid";
             code = 400;
         } catch (SQLException e) {

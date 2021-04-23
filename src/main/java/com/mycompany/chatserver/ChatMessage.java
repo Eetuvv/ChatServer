@@ -9,7 +9,7 @@ public class ChatMessage {
     String message;
     String channel;
     String tag;
-
+    
     public ChatMessage(String channel, LocalDateTime sent, String nick, String msg, String tag) {
         this.channel = channel;
         this.sent = sent;

@@ -38,9 +38,9 @@ public class ChatServer {
             });
 
             ChatAuthenticator auth = new ChatAuthenticator();
-            HttpContext chatContext = server.createContext("/chat", new ChatHandler());            
+            HttpContext chatContext = server.createContext("/chat", new ChatHandler());
             chatContext.setAuthenticator(auth);
-            
+
             server.createContext("/registration", new RegistrationHandler(auth));
 
             // Enable multithread support
@@ -82,6 +82,10 @@ public class ChatServer {
             System.out.println("Error: certificate not found!");
         } catch (KeyStoreException e) {
             System.out.println("Error: Keystore " + args[1] + " not found");
+        } catch (ArrayIndexOutOfBoundsException e) {
+            e.printStackTrace();
+            System.out.println("Invalid startup parameters");
+            System.out.println("Usage java -jar jar-file.jar dbname.db cert.jks c3rt-p4ssw0rd");
         }
     }
 
