@@ -262,7 +262,7 @@ public class ChatDatabase {
             } else {
                 //If last-modified header is found get all new messages
                 query = "SELECT Messages.message, Messages.timestamp, Messages.username, Messages.tag "
-                        + "FROM Messages WHERE channel = ? Messages.timestamp > ? ORDER BY timestamp";
+                        + "FROM Messages WHERE channel = ? AND Messages.timestamp > ? ORDER BY timestamp";
                 p = db.prepareStatement(query);
                 p.setString(1, channel);
                 p.setLong(2, messagesSince);

@@ -40,11 +40,7 @@ public class ChatHandler implements HttpHandler {
         if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
             handlePostRequest(exchange);
         } else if (exchange.getRequestMethod().equalsIgnoreCase("GET")) {
-            try {
-                handleGetRequest(exchange);
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
+            handleGetRequest(exchange);
         } else if (exchange.getRequestMethod().equalsIgnoreCase("PUT")) {
             handlePutRequest(exchange);
         } else if (exchange.getRequestMethod().equalsIgnoreCase("DELETE")) {
@@ -140,129 +136,71 @@ public class ChatHandler implements HttpHandler {
         }
     }
 
-    private void handleGetRequest(HttpExchange exchange) throws IOException, SQLException {
+    private void handleGetRequest(HttpExchange exchange) {
         // Handle GET request (client wants to see messages)
 
-        URI requestURI = exchange.getRequestURI();
-        String channel = "main";
-        String action = null;
+        try {
+            URI requestURI = exchange.getRequestURI();
+            String channel = "main";
+            String action = null;
 
-        if (requestURI.getQuery() == null) {
-            String mainChannel = "https://localhost:8001/chat?channel=main";
+            if (requestURI.getQuery() == null) {
+                String mainChannel = "https://localhost:8001/chat?channel=main";
 
-            exchange.getResponseHeaders().add("Location", mainChannel);
-            exchange.sendResponseHeaders(302, -1);
-        } else {
-            String query = requestURI.getQuery();
-            if (query != null) {
-
-                String split[] = query.split("=");
-                // Split query string, should be "channel" or "listChannels"
-                String splitQuery = split[0];
-                if (splitQuery.equals("channel")) {
-                    channel = split[1];
-                    action = "getMessages";
-                } else if (splitQuery.equals("listChannels")) {
-                    action = "listChannels";
-                }
-
+                exchange.getResponseHeaders().add("Location", mainChannel);
+                exchange.sendResponseHeaders(302, -1);
             } else {
-                responseCode = 400;
-                response = "Bad query";
-            }
-        }
+                String query = requestURI.getQuery();
 
-        ChatDatabase db = ChatDatabase.getInstance();
-        Headers headers = exchange.getRequestHeaders();
-        String lastModified = null;
-        String contentType = null;
-        LocalDateTime fromWhichDate = null;
-        long messagesSince = -1;
-        
-        if (headers.containsKey("If-Modified-Since")) {
-            lastModified = headers.get("If-Modified-Since").get(0);
-            try {
-                ZonedDateTime zd = ZonedDateTime.parse(lastModified);
-                fromWhichDate = zd.toLocalDateTime();
-                messagesSince = fromWhichDate.toInstant(ZoneOffset.UTC).toEpochMilli();
-            } catch (DateTimeException e) {
-                System.out.println("Invalid date in if-modified-since header");
-            }
+                if (query != null) {
 
-        } else {
-            System.out.println("No last-modified header found");
-        }
-        if (headers.containsKey("Content-Type")) {
-            contentType = headers.get("Content-Type").get(0);
-        } else {
-            response = "No Content-Type specified in request";
-            responseCode = 400;
-        }
-
-        // List all different channels available
-        if (action.equals("listChannels")) {
-            ArrayList<String> channels = db.listChannels();
-            String responseChannels = channels.toString();
-            byte[] bytes = responseChannels.getBytes("UTF-8");
-
-            exchange.sendResponseHeaders(200, bytes.length);
-
-            OutputStream os = exchange.getResponseBody();
-            os.write(bytes);
-
-            os.flush();
-            os.close();
-
-            // Return messages from specified channel
-        } else if (action.equals("getMessages")) {
-
-            //Formatter for timestamps
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSX");
-            ArrayList<ChatMessage> dbMessages = db.getMessages(channel, messagesSince);
-            if (dbMessages.isEmpty()) {
-                exchange.sendResponseHeaders(204, -1);
-            } else {
-                //Sort messages by timestamp
-                Collections.sort(dbMessages, (ChatMessage lhs, ChatMessage rhs) -> lhs.sent.compareTo(rhs.sent));
-
-                //Create JSONArray to add messages to
-                JSONArray responseMessages = new JSONArray();
-
-                LocalDateTime latest = null;
-
-                for (ChatMessage message : dbMessages) {
-
-                    //Keep track of latest message in db
-                    if (latest == null || message.sent.isAfter(latest)) {
-                        latest = message.sent;
+                    String split[] = query.split("=");
+                    // Split query string, should be "channel" or "listChannels"
+                    String splitQuery = split[0];
+                    if (splitQuery.equals("channel")) {
+                        channel = split[1];
+                        action = "getMessages";
+                    } else if (splitQuery.equals("listChannels")) {
+                        action = "listChannels";
                     }
+                } else {
+                    responseCode = 400;
+                    response = "Bad query";
+                }
+            }
 
-                    //Format timestamps
-                    ZonedDateTime zonedDateTime = message.sent.atZone(ZoneId.of("UTC"));
-                    String formattedTimestamp = zonedDateTime.format(formatter);
+            ChatDatabase db = ChatDatabase.getInstance();
+            Headers headers = exchange.getRequestHeaders();
+            String lastModified = null;
+            String contentType = null;
+            LocalDateTime fromWhichDate = null;
+            long messagesSince = -1;
 
-                    //Create new JSONObject with message details
-                    JSONObject json = new JSONObject();
-
-                    json.put("user", message.userName);
-                    json.put("message", message.message);
-                    json.put("sent", formattedTimestamp);
-                    json.put("tag", message.tag);
-
-                    //Add JSONObject to JSONArray
-                    responseMessages.put(json);
+            if (headers.containsKey("If-Modified-Since")) {
+                lastModified = headers.get("If-Modified-Since").get(0);
+                try {
+                    ZonedDateTime zd = ZonedDateTime.parse(lastModified);
+                    fromWhichDate = zd.toLocalDateTime();
+                    messagesSince = fromWhichDate.toInstant(ZoneOffset.UTC).toEpochMilli();
+                } catch (DateTimeException e) {
+                    System.out.println("Invalid date in if-modified-since header");
                 }
 
-                if (latest != null) {
-                    ZonedDateTime zonedDateTime = latest.atZone(ZoneId.of("UTC"));
-                    String latestFormatted = zonedDateTime.format(formatter);
+            } else {
+                System.out.println("No last-modified header found");
+            }
+            if (headers.containsKey("Content-Type")) {
+                contentType = headers.get("Content-Type").get(0);
+            } else {
+                response = "No Content-Type specified in request";
+                responseCode = 400;
+            }
 
-                    //Add last-modified header with value of latest msg timestamp
-                    exchange.getResponseHeaders().add("Last-Modified", latestFormatted);
-                }
-
-                String JSON = responseMessages.toString();
-                byte[] bytes = JSON.getBytes("UTF-8");
+            // List all different channels available
+            if (action.equals("listChannels")) {
+                ArrayList<String> channels = db.listChannels();
+                String responseChannels = channels.toString();
+                byte[] bytes = responseChannels.getBytes("UTF-8");
 
                 exchange.sendResponseHeaders(200, bytes.length);
 
@@ -271,11 +209,74 @@ public class ChatHandler implements HttpHandler {
 
                 os.flush();
                 os.close();
+
+                // Return messages from specified channel
+            } else if (action.equals("getMessages")) {
+
+                //Formatter for timestamps
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSX");
+                ArrayList<ChatMessage> dbMessages = db.getMessages(channel, messagesSince);
+                if (dbMessages.isEmpty()) {
+                    exchange.sendResponseHeaders(204, -1);
+                } else {
+                    //Sort messages by timestamp
+
+                    Collections.sort(dbMessages, (ChatMessage lhs, ChatMessage rhs) -> lhs.sent.compareTo(rhs.sent));
+
+                    //Create JSONArray to add messages to
+                    JSONArray responseMessages = new JSONArray();
+
+                    LocalDateTime latest = null;
+
+                    for (ChatMessage message : dbMessages) {
+
+                        //Keep track of latest message in db
+                        if (latest == null || message.sent.isAfter(latest)) {
+                            latest = message.sent;
+                        }
+
+                        //Format timestamps
+                        ZonedDateTime zonedDateTime = message.sent.atZone(ZoneId.of("UTC"));
+                        String formattedTimestamp = zonedDateTime.format(formatter);
+
+                        //Create new JSONObject with message details
+                        JSONObject json = new JSONObject();
+
+                        json.put("user", message.userName);
+                        json.put("message", message.message);
+                        json.put("sent", formattedTimestamp);
+                        json.put("tag", message.tag);
+
+                        //Add JSONObject to JSONArray
+                        responseMessages.put(json);
+                    }
+
+                    if (latest != null) {
+                        ZonedDateTime zonedDateTime = latest.atZone(ZoneId.of("UTC"));
+                        String latestFormatted = zonedDateTime.format(formatter);
+
+                        //Add last-modified header with value of latest msg timestamp
+                        exchange.getResponseHeaders().add("Last-Modified", latestFormatted);
+                    }
+
+                    String JSON = responseMessages.toString();
+                    byte[] bytes = JSON.getBytes("UTF-8");
+
+                    exchange.sendResponseHeaders(200, bytes.length);
+
+                    OutputStream os = exchange.getResponseBody();
+                    os.write(bytes);
+
+                    os.flush();
+                    os.close();
+                }
+            } else {
+                response = "Invalid action specified. To get messages, use action getMessages, and specify channel."
+                        + " To list channels, use action listChannels.";
+                responseCode = 400;
             }
-        } else {
-            response = "Invalid action specified. To get messages, use action getMessages, and specify channel."
-                    + " To list channels, use action listChannels.";
-            responseCode = 400;
+        } catch (IOException | SQLException | JSONException | NullPointerException e) {
+            e.printStackTrace();
         }
     }
 

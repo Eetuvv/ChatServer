@@ -106,5 +106,4 @@ public class ChatServer {
 
         return ssl;
     }
-
 }
