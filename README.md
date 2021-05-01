@@ -50,15 +50,18 @@ Post a message
 }
 </pre>
 ### GET-request
-Get messages or get a list of available channels
+#### Get requests to /chat are made using queries  
+If no query is specified, server will redirect to: "https://localhost:8001/chat?channel=main"
+##### Get messages from channel
 <pre>
-{
-    ”channel: ”channel”, // specifies whihch channel to return messages from. Must not be empty.
-    ”action”: ”getMessages” // or ”listChannels” 
-}
+Query for choosing channel: <strong>?channel=channelname</strong>
+Example: "https://localhost:8001/chat?channel=channelname"  
 </pre>
-Action specifies what action to perform. getMessages returns all messages in specified channel and listChannels returns list of all available channels. Action must not be empty.
-<br>
+##### List available channels
+<pre>
+Query for listing all available channels: <strong>?listChannels</strong>  
+Example: "https://localhost:8001/chat?listChannels"
+</pre>
 ### PUT-request 
 Edit message
 <pre>
