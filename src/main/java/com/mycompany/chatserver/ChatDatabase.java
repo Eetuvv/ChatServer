@@ -53,10 +53,8 @@ public class ChatDatabase {
         try (Connection db = DriverManager.getConnection(databaseName)) {
 
             Statement s = db.createStatement();
-
-            //s.execute("CREATE TABLE IF NOT EXISTS Admins(id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT, adminname TEXT UNIQUE, password TEXT, salt TEXT)");
-            // TODO nickname
-            s.execute("CREATE TABLE IF NOT EXISTS Users(id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT, username TEXT UNIQUE, password TEXT, email TEXT, salt TEXT)");
+            
+            s.execute("CREATE TABLE IF NOT EXISTS Users(id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT, username TEXT UNIQUE, nickname TEXT, password TEXT, email TEXT, salt TEXT)");
             s.execute("CREATE TABLE IF NOT EXISTS Messages(id INTEGER PRIMARY KEY AUTOINCREMENT, channel TEXT, tag TEXT, message TEXT, timestamp INTEGER, username REFERENCES Users)");
 
             System.out.println("Database created.");
@@ -106,7 +104,18 @@ public class ChatDatabase {
             //Add user to database if username is available
             try {
                 if (r.getInt("COUNT") == 0) {
-                    s.execute("INSERT INTO Users(role, username, password, email, salt) VALUES ('" + role + "', '" + username + "', '" + hashedPassword + "','" + email + "','" + salt + "')");
+                    
+                    PreparedStatement p2 = db.prepareStatement("INSERT INTO Users(role, username, nickname, password, email, salt) VALUES (?, ?, ?, ?, ?, ?)");
+                    
+                    p2.setString(1, role);
+                    p2.setString(2, username);
+                    p2.setString(3, username);
+                    p2.setString(4, hashedPassword);
+                    p2.setString(5, email);
+                    p2.setString(6, salt);
+                    
+                    p2.execute();
+                    //s.execute("INSERT INTO Users(role, username,  password, email, salt) VALUES ('" + role + "', '" + username + "', '" + hashedPassword + "','" + email + "','" + salt + "')");
                     System.out.println("Added user " + username + " with role " + role + " to database.");
                     return true;
 
@@ -114,6 +123,7 @@ public class ChatDatabase {
                     System.out.println("Username already exists.");
                 }
             } catch (SQLException e) {
+                e.printStackTrace();
                 System.out.println("Error when adding user credentials to database.");
             }
             s.close();
@@ -180,18 +190,19 @@ public class ChatDatabase {
         }
     }
     
-    public boolean editUserDetails(String user, String username, String email, String role) throws SQLException {
+    public boolean editUserDetails(String user, String username, String email, String role, String nickname) throws SQLException {
         // Edit user's info by giving the current username and updated info
         Statement s;
         try (Connection db = DriverManager.getConnection(databaseName)) {
             s = db.createStatement();
 
-            PreparedStatement p = db.prepareStatement("UPDATE Users SET username = ? , email = ?, role = ? WHERE username = ?");
+            PreparedStatement p = db.prepareStatement("UPDATE Users SET username = ? , email = ?, role = ?, nickname = ? WHERE username = ?");
 
             p.setString(1, username);
             p.setString(2, email);
             p.setString(3, role);
-            p.setString(4, user);
+            p.setString(4, nickname);
+            p.setString(5, user);
 
             int num = p.executeUpdate();
             s.close();
@@ -237,18 +248,20 @@ public class ChatDatabase {
         try (Connection db = DriverManager.getConnection(databaseName)) {
             s = db.createStatement();
 
-            // TODO add nickname
-            //PreparedStatement p = db.prepareStatement("SELECT Users.email, Users.nickname FROM Users WHERE username = ?");
-            PreparedStatement p = db.prepareStatement("SELECT Users.email FROM Users WHERE username = ?");
+            PreparedStatement p = db.prepareStatement("SELECT Users.email, Users.nickname FROM Users WHERE username = ?");
             p.setString(1, username);
             
             ResultSet r = p.executeQuery();
             String email = "";
-            //String nickname = "";
+            String nickname = "";
             
             if (r.next()) {
                 email = r.getString("email");
+                nickname = r.getString("nickname");
                 userDetails.add(email);
+                userDetails.add(nickname);
+            } else {
+                System.out.println("wtf");
             }
             return userDetails;
         }

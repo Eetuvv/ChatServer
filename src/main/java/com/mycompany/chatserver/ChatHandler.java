@@ -64,10 +64,8 @@ public class ChatHandler implements HttpHandler {
 
     private void handlePostRequest(HttpExchange exchange) throws IOException {
         // Handle POST request (client sent new chat message)
-
         response = "";
         responseCode = 200;
-
         try {
 
             Headers headers = exchange.getRequestHeaders();
@@ -101,6 +99,7 @@ public class ChatHandler implements HttpHandler {
 
                 JSONObject jsonObj = new JSONObject(text);
 
+                // If json has action key with value getUserDetails, respond with details of the requested user (email and nickname)
                 if (jsonObj.has("action")) {
                     if (jsonObj.getString("action").equals("getUserDetails")) {
                         String username = jsonObj.getString("user");
@@ -117,26 +116,26 @@ public class ChatHandler implements HttpHandler {
                         os.flush();
                         os.close();
                     }
-                }
-
-                String dateStr = jsonObj.getString("sent");
-                OffsetDateTime odt = OffsetDateTime.parse(dateStr);
-
-                LocalDateTime sent = odt.toLocalDateTime();
-                String userName = jsonObj.get("user").toString();
-                String message = jsonObj.getString("message");
-                String channel = jsonObj.getString("channel");
-
-                if (!text.isEmpty()) {
-                    //Add message to database
-                    ChatMessage newMessage = new ChatMessage(channel, sent, userName, message, "");
-                    ChatDatabase db = ChatDatabase.getInstance();
-                    db.insertMessage(newMessage);
-
-                    exchange.sendResponseHeaders(200, -1);
                 } else {
-                    response = "Text was empty.";
-                    responseCode = 400;
+                    String dateStr = jsonObj.getString("sent");
+                    OffsetDateTime odt = OffsetDateTime.parse(dateStr);
+
+                    LocalDateTime sent = odt.toLocalDateTime();
+                    String userName = jsonObj.get("user").toString();
+                    String message = jsonObj.getString("message");
+                    String channel = jsonObj.getString("channel");
+
+                    if (!text.isEmpty()) {
+                        //Add message to database
+                        ChatMessage newMessage = new ChatMessage(channel, sent, userName, message, "");
+                        ChatDatabase db = ChatDatabase.getInstance();
+                        db.insertMessage(newMessage);
+
+                        exchange.sendResponseHeaders(200, -1);
+                    } else {
+                        response = "Text was empty.";
+                        responseCode = 400;
+                    }
                 }
 
             } else if (!contentType.isEmpty() && !contentType.equalsIgnoreCase("application/json")) {
@@ -155,7 +154,6 @@ public class ChatHandler implements HttpHandler {
 
     private void handleGetRequest(HttpExchange exchange) {
         // Handle GET request (client wants to see messages)
-
         try {
             URI requestURI = exchange.getRequestURI();
             String channel = "main";
@@ -301,7 +299,6 @@ public class ChatHandler implements HttpHandler {
         //Handle PUT-request
         response = "";
         responseCode = 200;
-
         try {
             //Handle PUT request
             Headers headers = exchange.getRequestHeaders();
@@ -348,9 +345,10 @@ public class ChatHandler implements HttpHandler {
                         JSONObject userDetails = requestBody.getJSONObject("userdetails");
                         String updatedUsername = userDetails.getString("updatedUsername");
                         String updatedEmail = userDetails.getString("updatedEmail");
+                        String updatedNickname = userDetails.getString("updatedNickname");
                         String role = userDetails.getString("role");
 
-                        db.editUserDetails(user, updatedUsername, updatedEmail, role);
+                        db.editUserDetails(user, updatedUsername, updatedEmail, role, updatedNickname);
                         exchange.sendResponseHeaders(200, -1);
 
                         //Edit message with specified id
@@ -393,9 +391,7 @@ public class ChatHandler implements HttpHandler {
         // Handle DELETE request
         response = "";
         responseCode = 200;
-
         try {
-
             Headers headers = exchange.getRequestHeaders();
             int contentLength = 0;
             String contentType = "";

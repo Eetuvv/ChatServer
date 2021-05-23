@@ -16,7 +16,7 @@ import org.json.JSONObject;
 
 public class RegistrationHandler implements HttpHandler {
 
-    private ChatAuthenticator authenticator;
+    private final ChatAuthenticator authenticator;
 
     public RegistrationHandler(ChatAuthenticator authenticator) {
         this.authenticator = authenticator;

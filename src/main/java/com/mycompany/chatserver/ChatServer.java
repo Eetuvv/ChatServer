@@ -19,7 +19,6 @@ import javax.net.ssl.TrustManagerFactory;
 public class ChatServer {
 
     public static void main(String[] args) throws Exception {
-
         try {
             HttpsServer server = HttpsServer.create(new InetSocketAddress(8001), 0);
 
