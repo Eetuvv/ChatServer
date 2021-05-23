@@ -67,26 +67,33 @@ Edit message
 <pre>
 {
     “user” : “nickname”,
-    “action” : “editmessage”
+    “action” : “editMessage”
     “messageid” : “293”, // message id to delete
     “channel” : “channel”
     “message” : “new contents of the message”,
     “sent” : “2020-12-21T07:57:47.123Z”
 }
 </pre>
-Edit user (with admin rights)
+Edit user info
 <pre>
 {
-    “user” : “nickname”, // Details of the user performing the action
-    "role" : "role",
+    “user” : “nickname”, // Current username of the user
     “action” : “editUser",
     "userdetails": // Details of user to be edited
     {
       “currentUsername" : “currentUsername” // Current username of the user to be edited
       “updatedUsername” : “updatedUsername”, // New user details || or old details if not updating everything
-      “updatedPassword” : “updatedPassword”, 
-      “updatedEmail” : “updatedEmail”
+      “updatedEmail” : “updatedEmail”,
+      "role" : "role"
     }
+}
+</pre>
+Edit user's password 
+<pre>
+{
+    “user” : “nickname”,
+    “action” : “editPassword”
+    “updatedPassword” : “newPassword”, // message id to delete
 }
 </pre>
 ### DELETE-request
