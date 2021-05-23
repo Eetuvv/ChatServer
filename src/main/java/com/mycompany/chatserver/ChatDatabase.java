@@ -19,7 +19,7 @@ public class ChatDatabase {
 
     private static ChatDatabase singleton = null;
     private String databaseName = "";
-    private SecureRandom secureRandom;
+    private final SecureRandom secureRandom;
 
     private ChatDatabase() {
         secureRandom = new SecureRandom();
@@ -55,6 +55,7 @@ public class ChatDatabase {
             Statement s = db.createStatement();
 
             //s.execute("CREATE TABLE IF NOT EXISTS Admins(id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT, adminname TEXT UNIQUE, password TEXT, salt TEXT)");
+            // TODO nickname
             s.execute("CREATE TABLE IF NOT EXISTS Users(id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT, username TEXT UNIQUE, password TEXT, email TEXT, salt TEXT)");
             s.execute("CREATE TABLE IF NOT EXISTS Messages(id INTEGER PRIMARY KEY AUTOINCREMENT, channel TEXT, tag TEXT, message TEXT, timestamp INTEGER, username REFERENCES Users)");
 
@@ -178,33 +179,78 @@ public class ChatDatabase {
             System.out.println("Could not connect to database.");
         }
     }
-
-    public boolean adminEditUser(String user, String username, String password, String email, String role) throws SQLException {
-
-        // Admin can edit user's info, by giving the current username and updated info
-        // Hash new password with salt
-        String split[] = getHashedPasswordWithSalt(password).split(" ");
-        String hashedPassword = split[0];
-
+    
+    public boolean editUserDetails(String user, String username, String email, String role) throws SQLException {
+        // Edit user's info by giving the current username and updated info
         Statement s;
         try (Connection db = DriverManager.getConnection(databaseName)) {
             s = db.createStatement();
 
-            PreparedStatement p = db.prepareStatement("UPDATE Users SET username = ? , password = ?, email = ?, role = ? WHERE username = ?");
+            PreparedStatement p = db.prepareStatement("UPDATE Users SET username = ? , email = ?, role = ? WHERE username = ?");
 
             p.setString(1, username);
-            p.setString(2, hashedPassword);
-            p.setString(3, email);
+            p.setString(2, email);
+            p.setString(3, role);
             p.setString(4, user);
-            p.setString(5, role);
 
-            if (p.executeUpdate() != 0) {
+            int num = p.executeUpdate();
+            s.close();
+            if (num != 0) {
                 System.out.println("User " + user + " edited.");
                 return true;
             } else {
                 System.out.println("Error updating user data: could not find user");
                 return false;
             }
+        }
+    }
+
+    public boolean editUserPassword(String username, String newPassword) throws SQLException {
+        // Hash new password with salt
+        String split[] = getHashedPasswordWithSalt(newPassword).split(" ");
+        String hashedPassword = split[0];
+
+        Statement s;
+        try (Connection db = DriverManager.getConnection(databaseName)) {
+            s = db.createStatement();
+
+            PreparedStatement p = db.prepareStatement("UPDATE Users SET password = ? WHERE username = ?");
+
+            p.setString(1, hashedPassword);
+            p.setString(2, username);
+
+            int num = p.executeUpdate();
+            s.close();
+            if (num != 0) {
+                System.out.println(username + " password changed.");
+                return true;
+            } else {
+                System.out.println("Error updating user data: could not find user");
+                return false;
+            }
+        }
+    }
+    
+    public ArrayList getUserDetails(String username) throws SQLException {
+        ArrayList<String> userDetails = new ArrayList<>();
+        Statement s;
+        try (Connection db = DriverManager.getConnection(databaseName)) {
+            s = db.createStatement();
+
+            // TODO add nickname
+            //PreparedStatement p = db.prepareStatement("SELECT Users.email, Users.nickname FROM Users WHERE username = ?");
+            PreparedStatement p = db.prepareStatement("SELECT Users.email FROM Users WHERE username = ?");
+            p.setString(1, username);
+            
+            ResultSet r = p.executeQuery();
+            String email = "";
+            //String nickname = "";
+            
+            if (r.next()) {
+                email = r.getString("email");
+                userDetails.add(email);
+            }
+            return userDetails;
         }
     }
 
@@ -324,14 +370,13 @@ public class ChatDatabase {
     }
 
     public void editMessage(int messageID, String username, String newMessage) throws SQLException {
-        
-        
+
         LocalDateTime time = LocalDateTime.now();
         long timestamp = time.toInstant(ZoneOffset.UTC).toEpochMilli();
         String tag = "<edited>";
         Statement s;
         try (Connection db = DriverManager.getConnection(databaseName)) {
-            
+
             s = db.createStatement();
             // Edit message only if it doesn't have deleted tag
             String query = "Update Messages SET message = ?, tag = ?, timestamp = ? WHERE id = ? AND username = ? AND tag IS NOT ?";
@@ -356,7 +401,7 @@ public class ChatDatabase {
             e.printStackTrace();
         }
     }
-    
+
     public ArrayList listChannels() throws SQLException {
         //Returns a list containing all different channels
         ArrayList<String> channels = new ArrayList<>();
@@ -364,9 +409,9 @@ public class ChatDatabase {
         try (Connection db = DriverManager.getConnection(databaseName)) {
             s = db.createStatement();
             PreparedStatement p = db.prepareStatement("SELECT DISTINCT channel FROM messages");
-            
+
             ResultSet r = p.executeQuery();
-            
+
             while (r.next()) {
                 channels.add(r.getString("channel"));
             }

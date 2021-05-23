@@ -35,7 +35,6 @@ public class ChatHandler implements HttpHandler {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
-
         // Handle different requests
         if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
             handlePostRequest(exchange);
@@ -100,15 +99,33 @@ public class ChatHandler implements HttpHandler {
 
                 stream.close();
 
-                JSONObject chatMessage = new JSONObject(text);
+                JSONObject jsonObj = new JSONObject(text);
 
-                String dateStr = chatMessage.getString("sent");
+                if (jsonObj.has("action")) {
+                    if (jsonObj.getString("action").equals("getUserDetails")) {
+                        String username = jsonObj.getString("user");
+                        ChatDatabase db = ChatDatabase.getInstance();
+
+                        String response = db.getUserDetails(username).toString();
+                        byte[] bytes = response.getBytes("UTF-8");
+
+                        exchange.sendResponseHeaders(200, bytes.length);
+
+                        OutputStream os = exchange.getResponseBody();
+                        os.write(bytes);
+
+                        os.flush();
+                        os.close();
+                    }
+                }
+
+                String dateStr = jsonObj.getString("sent");
                 OffsetDateTime odt = OffsetDateTime.parse(dateStr);
 
                 LocalDateTime sent = odt.toLocalDateTime();
-                String userName = chatMessage.get("user").toString();
-                String message = chatMessage.getString("message");
-                String channel = chatMessage.getString("channel");
+                String userName = jsonObj.get("user").toString();
+                String message = jsonObj.getString("message");
+                String channel = jsonObj.getString("channel");
 
                 if (!text.isEmpty()) {
                     //Add message to database
@@ -281,7 +298,6 @@ public class ChatHandler implements HttpHandler {
     }
 
     private void handlePutRequest(HttpExchange exchange) throws IOException {
-
         //Handle PUT-request
         response = "";
         responseCode = 200;
@@ -323,36 +339,34 @@ public class ChatHandler implements HttpHandler {
                     String user = requestBody.getString("user");
                     String action = requestBody.getString("action");
 
-                    String role = null;
                     int messageID = 0;
                     String message = null;
 
                     ChatDatabase db = ChatDatabase.getInstance();
 
-                    //Check if user has admin rights before editing user in db
                     if (action.equals("editUser")) {
-                        role = requestBody.getString("role");
-                        if (role.equals("admin")) {
-                            JSONObject userDetails = requestBody.getJSONObject("userdetails");
-                            String currentUsername = userDetails.getString("currentUsername");
-                            String updatedUsername = userDetails.getString("updatedUsername");
-                            String updatedPassword = userDetails.getString("updatedPassword");
-                            String updatedEmail = userDetails.getString("updatedEmail");
+                        JSONObject userDetails = requestBody.getJSONObject("userdetails");
+                        String updatedUsername = userDetails.getString("updatedUsername");
+                        String updatedEmail = userDetails.getString("updatedEmail");
+                        String role = userDetails.getString("role");
 
-                            db.adminEditUser(currentUsername, updatedUsername, updatedPassword, updatedEmail, role);
-                            exchange.sendResponseHeaders(200, -1);
-                        } else {
-                            System.out.println("Only admin is authorized to edit users.");
-                            response = "Not authorized: admin rights required to edit user";
-                            responseCode = 401;
-                        }
+                        db.editUserDetails(user, updatedUsername, updatedEmail, role);
+                        exchange.sendResponseHeaders(200, -1);
 
                         //Edit message with specified id
-                    } else if (action.equals("editmessage")) {
+                    } else if (action.equals("editMessage")) {
                         messageID = requestBody.getInt("messageid");
                         message = requestBody.getString("message");
                         db.editMessage(messageID, user, message);
                         exchange.sendResponseHeaders(200, -1);
+
+                        // Edit user's password
+                    } else if (action.equals("editPassword")) {
+                        String updatedPassword = requestBody.getString("updatedPassword");
+                        db.editUserPassword(user, updatedPassword);
+                        if (db.editUserPassword(user, updatedPassword) == true) {
+                            exchange.sendResponseHeaders(200, -1);
+                        }
                     }
 
                 } else {
@@ -370,13 +384,13 @@ public class ChatHandler implements HttpHandler {
             response = "JSON file not valid";
             responseCode = 400;
         } catch (SQLException e) {
+            e.printStackTrace();
             System.out.println("Error editing user");
         }
     }
 
     private void handleDeleteRequest(HttpExchange exchange) throws IOException {
         // Handle DELETE request
-
         response = "";
         responseCode = 200;
 
