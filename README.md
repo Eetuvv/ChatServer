@@ -1,11 +1,19 @@
 # ChatServer
-Chat Server made in Programming 3 course.
+REST-API type http-server made with Java's <a href="https://docs.oracle.com/javase/8/docs/jre/api/net/httpserver/spec/com/sun/net/httpserver/HttpServer.html">HttpServer-class</a>  
+Client available <a href="https://github.com/Eetuvv/chat_application_with_back-end">here</a>
 <br>
 <br>
-Server handles HTTP requests. User can register a new user with username, password and email, login with user, and post messages that are saved to  SQLite database.  
-Passwords are encrypted for extra security.  
+Server handles HTTP requests. User can: <ul>
+    <li>Register with a username, password and email</li>
+    <li>Post messages to specific channels</li>
+    <li>Request a list of chat channels</li>
+    <li>Create new chat channels</li>
+    <li>Edit and delete messages</li>
+    <li>Edit user details</li>
+    </ul>
+    Passwords are hashed with <a href="https://en.wikipedia.org/wiki/Salt_(cryptography)">salt</a> for extra security.
 <br>
-Client coming soon..
+<br>
 
 # Startup parameters
 To start the server, pass these tree startup parameters to server, <strong>in this order:</strong> 
