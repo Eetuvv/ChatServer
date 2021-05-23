@@ -66,7 +66,7 @@ Example: "https://localhost:8001/chat?listChannels"
 Edit message
 <pre>
 {
-    “user” : “nickname”,
+    “user” : “username”,
     “action” : “editMessage”
     “messageid” : “293”, // message id to delete
     “channel” : “channel”
@@ -77,11 +77,10 @@ Edit message
 Edit user info
 <pre>
 {
-    “user” : “nickname”, // Current username of the user
+    “user” : “username”, // Current username of the user
     “action” : “editUser",
-    "userdetails": // Details of user to be edited
+    "userdetails": // Updated user details
     {
-      “currentUsername" : “currentUsername” // Current username of the user to be edited
       “updatedUsername” : “updatedUsername”, // New user details || or old details if not updating everything
       “updatedEmail” : “updatedEmail”,
       "role" : "role"
@@ -91,9 +90,9 @@ Edit user info
 Edit user's password 
 <pre>
 {
-    “user” : “nickname”,
+    “user” : “username”,
     “action” : “editPassword”
-    “updatedPassword” : “newPassword”, // message id to delete
+    “updatedPassword” : “newPassword”
 }
 </pre>
 ### DELETE-request
