@@ -83,6 +83,7 @@ Edit user info
     {
       “updatedUsername” : “updatedUsername”, // New user details || or old details if not updating everything
       “updatedEmail” : “updatedEmail”,
+      "updatedNickname" : "updatedNickname",
       "role" : "role"
     }
 }
